@@ -79,16 +79,16 @@ function pickWeightedSource(sources: { src: LeadSource; weight: number }[]): Lea
 
 // ── Sales Reps ──
 export const salesReps: SalesRep[] = [
-  { id: "REP-01", name: "Carlos Mendoza", region: "Quito", email: "c.mendoza@saludsa.com" },
-  { id: "REP-02", name: "Ana Ruiz", region: "Guayaquil", email: "a.ruiz@saludsa.com" },
-  { id: "REP-03", name: "Patricia Herrera", region: "Cuenca", email: "p.herrera@saludsa.com" },
-  { id: "REP-04", name: "Marco Delgado", region: "Quito", email: "m.delgado@saludsa.com" },
-  { id: "REP-05", name: "Silvia Flores", region: "Guayaquil", email: "s.flores@saludsa.com" },
-  { id: "REP-06", name: "Tomas Vega", region: "Ambato", email: "t.vega@saludsa.com" },
-  { id: "REP-07", name: "Lorena Cordova", region: "Manta", email: "l.cordova@saludsa.com" },
-  { id: "REP-08", name: "Javier Suarez", region: "Loja", email: "j.suarez@saludsa.com" },
-  { id: "REP-09", name: "Daniela Torres", region: "Riobamba", email: "d.torres@saludsa.com" },
-  { id: "REP-10", name: "Eduardo Sandoval", region: "Machala", email: "e.sandoval@saludsa.com" },
+  { id: "REP-01", name: "Carlos Mendoza", region: "Quito", email: "c.mendoza@fdryze.com" },
+  { id: "REP-02", name: "Ana Ruiz", region: "Guayaquil", email: "a.ruiz@fdryze.com" },
+  { id: "REP-03", name: "Patricia Herrera", region: "Cuenca", email: "p.herrera@fdryze.com" },
+  { id: "REP-04", name: "Marco Delgado", region: "Quito", email: "m.delgado@fdryze.com" },
+  { id: "REP-05", name: "Silvia Flores", region: "Guayaquil", email: "s.flores@fdryze.com" },
+  { id: "REP-06", name: "Tomas Vega", region: "Ambato", email: "t.vega@fdryze.com" },
+  { id: "REP-07", name: "Lorena Cordova", region: "Manta", email: "l.cordova@fdryze.com" },
+  { id: "REP-08", name: "Javier Suarez", region: "Loja", email: "j.suarez@fdryze.com" },
+  { id: "REP-09", name: "Daniela Torres", region: "Riobamba", email: "d.torres@fdryze.com" },
+  { id: "REP-10", name: "Eduardo Sandoval", region: "Machala", email: "e.sandoval@fdryze.com" },
 ];
 
 // ── Time helpers ──
@@ -319,7 +319,7 @@ function generateTasks(leads: Lead[]): Task[] {
 // ── Generate conversations (English) ──
 const CORP_MSG_TEMPLATES: string[][] = [
   [
-    "Hi! I'm {agent} from Saludsa. We received your inquiry about our {plan}. Do you have a few minutes to chat?",
+    "Hi! I'm {agent} from FDRYZE. We received your inquiry about our {plan}. Do you have a few minutes to chat?",
     "Hello! Yes, of course. We're looking for a health plan for our employees.",
     "Great. The {plan} includes full medical coverage, dental, and access to our specialist network. Are you interested in international coverage?",
     "Yes, we have employees who travel frequently. What coverage do you offer abroad?",
@@ -327,7 +327,7 @@ const CORP_MSG_TEMPLATES: string[][] = [
     "That sounds great. Can we schedule a meeting with our HR director?",
   ],
   [
-    "Good morning, I'm reaching out from Saludsa regarding the quote you requested.",
+    "Good morning, I'm reaching out from FDRYZE regarding the quote you requested.",
     "Good morning, yes, I need information for my company of {size} employees.",
     "We have very competitive corporate options. What coverage do you need as a priority?",
     "We need dental and maternity coverage as mandatory benefits.",
@@ -338,7 +338,7 @@ const CORP_MSG_TEMPLATES: string[][] = [
 
 const INDIVIDUAL_MSG_TEMPLATES: string[][] = [
   [
-    "Hi! I'm {agent} from Saludsa. I see you submitted a form about our family plans. How can I help?",
+    "Hi! I'm {agent} from FDRYZE. I see you submitted a form about our family plans. How can I help?",
     "Hello! Yes, I'm looking for coverage for my family of 4.",
     "Great choice! Our Family Plan covers up to 6 members. What's your main priority — pediatric care, maternity, or general coverage?",
     "Pediatric care is our top priority. We have two young kids.",
@@ -369,7 +369,7 @@ const INDIVIDUAL_MSG_TEMPLATES: string[][] = [
 
 const CORP_EMAIL_TEMPLATE: string[][] = [
   [
-    "Subject: Corporate Health Plan Inquiry — 85 employees\n\nDear Saludsa team,\n\nI'm reaching out to explore corporate health plan options for our company of 85 employees. We're currently evaluating providers for Q2.\n\nBest regards",
+    "Subject: Corporate Health Plan Inquiry — 85 employees\n\nDear FDRYZE team,\n\nI'm reaching out to explore corporate health plan options for our company of 85 employees. We're currently evaluating providers for Q2.\n\nBest regards",
     "Dear {lead},\n\nThank you for your interest! I'd be happy to discuss our corporate plans. For a company of 85 employees, we can offer significant volume discounts.\n\nWould next Tuesday at 10am work for a brief call?\n\nBest,\n{agent}",
     "That works perfectly. Please send a calendar invite to my email.\n\nAlso, do your plans include international emergency coverage? Several of our executives travel frequently.",
     "Absolutely. Our Corporate Premium plan includes international coverage up to $500K. I'll include that in our discussion.\n\nCalendar invite sent!",
@@ -378,7 +378,7 @@ const CORP_EMAIL_TEMPLATE: string[][] = [
 
 const WEB_CHAT_INDIVIDUAL_TEMPLATE: string[][] = [
   [
-    "Hello! Welcome to Saludsa. How can I help you today?",
+    "Hello! Welcome to FDRYZE. How can I help you today?",
     "Hi, I'm looking for a health plan for myself and my 2 kids.",
     "I'd be happy to help! Are you looking for our Family Plan or Individual plans for each person?",
     "A family plan would be better. What does it cover?",
@@ -551,11 +551,11 @@ export const webChatDemoFlows: { id: string; title: string; messages: ChatMessag
       { id: "WC1-12", sender: "lead", text: "A friend who's a member recommended you.", time: "09:06" },
       { id: "WC1-13", sender: "bot", text: "To send you a personalized quote, could you share your name and email?", time: "09:06" },
       { id: "WC1-14", sender: "lead", text: "Lisa Parker, lisa.parker@gmail.com", time: "09:07" },
-      { id: "WC1-15", sender: "bot", text: "Do you consent to Saludsa processing your personal data per our privacy policy?", time: "09:07" },
+      { id: "WC1-15", sender: "bot", text: "Do you consent to FDRYZE processing your personal data per our privacy policy?", time: "09:07" },
       { id: "WC1-16", sender: "lead", text: "Yes, I consent.", time: "09:08" },
       { id: "WC1-17", sender: "bot", text: "✅ Thank you, Lisa! Based on your needs, I recommend our Family Plan with pediatric and dental add-ons. An advisor will contact you within 2 hours. Would you prefer a phone call or email?", time: "09:08" },
       { id: "WC1-18", sender: "lead", text: "Phone call please.", time: "09:09" },
-      { id: "WC1-19", sender: "bot", text: "Perfect! An advisor will call you shortly. Thank you for choosing Saludsa!", time: "09:09" },
+      { id: "WC1-19", sender: "bot", text: "Perfect! An advisor will call you shortly. Thank you for choosing FDRYZE!", time: "09:09" },
     ],
   },
   {
@@ -595,7 +595,7 @@ export const webChatDemoFlows: { id: string; title: string; messages: ChatMessag
       { id: "WC3-12", sender: "lead", text: "Robert Chen, TechVentures Inc, robert.chen@techventures.com", time: "14:06" },
       { id: "WC3-13", sender: "bot", text: "Do you consent to our data processing policy?", time: "14:06" },
       { id: "WC3-14", sender: "lead", text: "Yes, I accept.", time: "14:07" },
-      { id: "WC3-15", sender: "bot", text: "✅ Thank you, Robert! A corporate specialist will contact you within 2 hours with a tailored proposal. Thank you for considering Saludsa!", time: "14:07" },
+      { id: "WC3-15", sender: "bot", text: "✅ Thank you, Robert! A corporate specialist will contact you within 2 hours with a tailored proposal. Thank you for considering FDRYZE!", time: "14:07" },
     ],
   },
   {
