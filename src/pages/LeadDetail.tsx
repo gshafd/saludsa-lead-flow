@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useData } from "@/context/DataContext";
-import { LeadStage } from "@/lib/types";
+import { LeadStage, Lead, Activity } from "@/lib/types";
 import { getScoreExplanations, topDriversSummary, SCORING_WEIGHTS, isIndividual } from "@/lib/scoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ import {
   Phone, Mail, Calendar, ArrowLeft, MessageSquare,
   FileText, CheckCircle2, Clock, Sparkles,
   Building2, TrendingUp, Info, Shield, History,
-  Plus, AlertTriangle, Users, Heart,
+  Plus, AlertTriangle, Users, Heart, Send, Copy,
 } from "lucide-react";
 
 const stageColors: Record<string, string> = {
@@ -64,6 +64,63 @@ export default function LeadDetail() {
   const [addActivityOpen, setAddActivityOpen] = useState(false);
   const [weightsOpen, setWeightsOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+
+  const generateEmailDraft = () => {
+    if (!lead) return { subject: "", body: "" };
+    const rep = salesReps.find(r => r.name === lead.assignedTo);
+    const repName = rep?.name ?? "FDRYZE Team";
+    const repEmail = rep?.email ?? "sales@fdryze.com";
+    const firstName = lead.name.split(" ")[0];
+
+    const recentActivities = leadActivities.slice(0, 3).map(a => a.title).join(", ");
+
+    let opening = "";
+    let mainBody = "";
+    let cta = "";
+
+    if (lead.stage === "New") {
+      opening = `Thank you for your interest in FDRYZE. We noticed you recently ${lead.source === "Website Form" ? "submitted an inquiry through our website" : lead.source === "WhatsApp Inbound" ? "reached out via WhatsApp" : lead.source === "Referral" ? "were referred to us" : "contacted us"}.`;
+      mainBody = individual
+        ? `Based on your interest in our ${lead.planInterest}, I'd love to walk you through the coverage options${lead.dependents ? ` for you and your ${lead.dependents} dependent(s)` : ""}.${lead.budgetRange ? ` We have flexible plans within the ${lead.budgetRange} range.` : ""}`
+        : `I'd like to discuss how our ${lead.planInterest} can benefit ${lead.company} and its ${lead.companySize} employees. We have tailored solutions for organizations in the ${lead.region} region.`;
+      cta = "Would you be available for a brief call this week to discuss your needs?";
+    } else if (lead.stage === "Contacted") {
+      opening = `It was great connecting with you recently. I wanted to follow up on our conversation.`;
+      mainBody = individual
+        ? `Your qualification score of ${lead.qualScore}% indicates a strong match with our ${lead.planInterest}. ${recentActivities ? `I see we've discussed: ${recentActivities}.` : ""}`
+        : `With a qualification score of ${lead.qualScore}%, ${lead.company} is well-positioned to benefit from our ${lead.planInterest}. ${recentActivities ? `Recent touchpoints include: ${recentActivities}.` : ""}`;
+      cta = lead.requestedQuote ? "I'm preparing your personalized quote and will have it ready shortly." : "Shall I prepare a detailed quote for your review?";
+    } else if (lead.stage === "Qualified") {
+      opening = `Great news — based on our evaluation, you're fully qualified for our ${lead.planInterest}.`;
+      mainBody = individual
+        ? `Your profile shows excellent alignment with our coverage options.${lead.coverageLevel ? ` The ${lead.coverageLevel} tier seems ideal for your needs.` : ""} ${lead.decisionTimeline ? `I understand your timeline is ${lead.decisionTimeline}, so I'd like to move quickly.` : ""}`
+        : `${lead.company} meets all criteria for our ${lead.planInterest}. With ${lead.companySize} employees, we can offer competitive group rates for the ${lead.region} region.`;
+      cta = "I'd like to schedule a final review meeting to walk through the proposal. What works best for you?";
+    } else if (lead.stage === "Won") {
+      opening = `Congratulations on choosing FDRYZE! We're thrilled to have ${individual ? "you" : lead.company} on board.`;
+      mainBody = `Your ${lead.planInterest} enrollment is being processed. Our onboarding team will reach out within the next 48 hours with next steps.`;
+      cta = "In the meantime, feel free to reach out if you have any questions.";
+    } else {
+      opening = `I hope this message finds you well. I wanted to reach out one more time regarding your interest in our ${lead.planInterest}.`;
+      mainBody = individual
+        ? `We've recently updated our plan options and pricing, and I believe we may have something that better fits your needs${lead.budgetRange ? ` within the ${lead.budgetRange} budget range` : ""}.`
+        : `We've introduced new enterprise features that could be valuable for ${lead.company}. I'd welcome the opportunity to reconnect.`;
+      cta = "Would you be open to a brief conversation to explore the new options?";
+    }
+
+    const subject = lead.stage === "Won"
+      ? `Welcome to FDRYZE — ${lead.planInterest} Enrollment Confirmation`
+      : lead.stage === "Qualified"
+      ? `Your ${lead.planInterest} Proposal is Ready — FDRYZE`
+      : lead.stage === "Lost"
+      ? `New Options Available — FDRYZE ${lead.planInterest}`
+      : `${lead.planInterest} — Next Steps with FDRYZE`;
+
+    const body = `Dear ${firstName},\n\n${opening}\n\n${mainBody}\n\n${cta}\n\nBest regards,\n${repName}\nFDRYZE Health Plans\n${repEmail}`;
+
+    return { subject, body };
+  };
 
   if (!lead) return <div className="p-6">Lead not found</div>;
 
@@ -119,7 +176,7 @@ export default function LeadDetail() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm"><Phone className="h-3.5 w-3.5 mr-1" /> Call</Button>
-          <Button variant="outline" size="sm"><Mail className="h-3.5 w-3.5 mr-1" /> Email</Button>
+          <Button variant="outline" size="sm" onClick={() => setEmailOpen(true)}><Mail className="h-3.5 w-3.5 mr-1" /> Email</Button>
           <Button variant="outline" size="sm"><Calendar className="h-3.5 w-3.5 mr-1" /> Schedule</Button>
           <Button size="sm" onClick={() => navigate(`/engagement/${lead.id}`)}>
             <MessageSquare className="h-3.5 w-3.5 mr-1" /> Chat
@@ -345,6 +402,15 @@ export default function LeadDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Email Draft Dialog */}
+      <EmailDraftDialog
+        open={emailOpen}
+        onOpenChange={setEmailOpen}
+        lead={lead}
+        generateDraft={generateEmailDraft}
+        addActivity={addActivity}
+      />
     </div>
   );
 }
@@ -394,5 +460,98 @@ function AddActivityForm({ leadId, onDone }: { leadId: string; onDone: () => voi
         <Button onClick={handleSubmit} disabled={!title.trim()}>Log Activity</Button>
       </div>
     </div>
+  );
+}
+
+function EmailDraftDialog({
+  open, onOpenChange, lead, generateDraft, addActivity,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  lead: Lead;
+  generateDraft: () => { subject: string; body: string };
+  addActivity: (a: Omit<Activity, "id">) => void;
+}) {
+  const draft = generateDraft();
+  const [subject, setSubject] = useState(draft.subject);
+  const [body, setBody] = useState(draft.body);
+  const [sent, setSent] = useState(false);
+
+  const handleSend = () => {
+    addActivity({
+      leadId: lead.id,
+      type: "email",
+      title: `Email sent: ${subject}`,
+      description: body.slice(0, 120) + "...",
+      date: new Date().toISOString(),
+      actor: lead.assignedTo,
+      completed: true,
+    });
+    setSent(true);
+    setTimeout(() => {
+      setSent(false);
+      onOpenChange(false);
+    }, 1500);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
+  };
+
+  // Reset draft when dialog opens
+  const handleOpenChange = (v: boolean) => {
+    if (v) {
+      const newDraft = generateDraft();
+      setSubject(newDraft.subject);
+      setBody(newDraft.body);
+      setSent(false);
+    }
+    onOpenChange(v);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-primary" />
+            Email Draft — {lead.name}
+          </DialogTitle>
+        </DialogHeader>
+        {sent ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <CheckCircle2 className="h-12 w-12 text-stage-won" />
+            <p className="text-lg font-semibold">Email Sent Successfully</p>
+            <p className="text-sm text-muted-foreground">Activity logged to timeline.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs text-muted-foreground">To</Label>
+              <Input value={lead.email} readOnly className="mt-1 bg-muted/50" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Subject</Label>
+              <Input value={subject} onChange={e => setSubject(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Body</Label>
+              <Textarea value={body} onChange={e => setBody(e.target.value)} className="mt-1 min-h-[250px] font-mono text-sm" />
+            </div>
+            <div className="flex items-center justify-between pt-2">
+              <Button variant="outline" size="sm" onClick={handleCopy}>
+                <Copy className="h-3.5 w-3.5 mr-1" /> Copy to Clipboard
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button onClick={handleSend}>
+                  <Send className="h-3.5 w-3.5 mr-1" /> Send Email
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
