@@ -57,7 +57,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const updateLead = useCallback((id: string, updates: Partial<Lead>, actor = "Carlos Mendoza") => {
     setLeads(prev => prev.map(l => {
       if (l.id !== id) return l;
-      // Audit
       for (const [key, val] of Object.entries(updates)) {
         const oldVal = String((l as any)[key] ?? "");
         const newVal = String(val);
@@ -75,7 +74,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addActivity = useCallback((activity: Omit<Activity, "id">) => {
     const id = `A${Date.now()}`;
     setActivities(prev => [{ ...activity, id }, ...prev]);
-    // Update lead's lastContactedAt and engagement counts
     setLeads(prev => prev.map(l => {
       if (l.id !== activity.leadId) return l;
       const updates: Partial<Lead> = { lastContactedAt: new Date().toISOString() };
@@ -107,7 +105,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         unreadCount: msg.sender === "lead" ? c.unreadCount + 1 : c.unreadCount,
       };
     }));
-    // Update engagement counts on lead
     const conv = conversations.find(c => c.id === convId);
     if (conv && msg.sender === "agent") {
       setLeads(prev => prev.map(l => {

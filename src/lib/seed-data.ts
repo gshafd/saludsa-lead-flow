@@ -1,6 +1,6 @@
 import {
   Lead, Activity, Task, Conversation, ChatMessage, SalesRep,
-  LeadSource, LeadStage, Channel, AuditEntry,
+  LeadSource, LeadStage, Channel,
 } from "./types";
 import { calculateScore, qualLevel } from "./scoring";
 
@@ -18,38 +18,42 @@ const pickN = <T>(arr: T[], n: number): T[] => {
 const randInt = (min: number, max: number) => Math.floor(rng() * (max - min + 1)) + min;
 
 // ── Reference lists ──
-const FIRST_NAMES = [
-  "María","Carlos","Lucía","Roberto","Sofía","Andrés","Carmen","Diego",
-  "Ana","José","Valentina","Fernando","Gabriela","Patricio","Daniela",
+const CORP_FIRST_NAMES = [
+  "Maria","Carlos","Lucia","Roberto","Sofia","Andres","Carmen","Diego",
+  "Ana","Jose","Valentina","Fernando","Gabriela","Patricio","Daniela",
   "Miguel","Camila","Ricardo","Alejandra","Pablo","Isabella","Santiago",
-  "Natalia","Eduardo","Lorena","Sebastián","Verónica","Francisco","Paola",
-  "Javier","Andrea","Tomás","Mónica","Luis","Carolina","Álvaro","Diana",
-  "Manuel","Jessica","Héctor","Adriana","Emilio","Sandra","Nicolás","Laura",
+  "Natalia","Eduardo","Lorena","Sebastian","Veronica","Francisco","Paola",
+  "Javier","Andrea","Tomas","Monica","Luis","Carolina","Alvaro","Diana",
+  "Manuel","Jessica","Hector","Adriana","Emilio","Sandra","Nicolas","Laura",
 ];
-const LAST_NAMES = [
-  "González","Espinoza","Paredes","Villacís","Cevallos","Ramírez","Aguirre",
-  "Moreno","López","Herrera","Guzmán","Mendoza","Ruiz","Castro","Suárez",
-  "Córdova","Salazar","Vega","Ortiz","Delgado","Flores","Reyes","Jiménez",
-  "Peña","Torres","Benítez","Sandoval","Vargas","Rojas","Zambrano",
+const CORP_LAST_NAMES = [
+  "Gonzalez","Espinoza","Paredes","Villacis","Cevallos","Ramirez","Aguirre",
+  "Moreno","Lopez","Herrera","Guzman","Mendoza","Ruiz","Castro","Suarez",
+  "Cordova","Salazar","Vega","Ortiz","Delgado","Flores","Reyes","Jimenez",
+  "Pena","Torres","Benitez","Sandoval","Vargas","Rojas","Zambrano",
 ];
 const COMPANIES = [
-  "TechCorp Ecuador","Grupo Financiero Andes","Farmacéutica Nacional",
-  "Constructora Quito S.A.","Importadora del Pacífico","Automotriz Sierra",
-  "Textiles Montecristi","Banano Export S.A.","Petróleo del Oriente",
-  "Agrícola Costa","Seguros del Pacífico","Minera Loja","Telecomunicaciones Andes",
-  "Alimentos del Valle","Industrial Guayas","Transportes Nacionales",
-  "Energía Renovable EC","Software Solutions EC","Consulting Partners Quito",
-  "Retail Group Ecuador","Salud Integral","Educación Superior EC",
-  "Hospitalidad del Litoral","Comercial Austro","Logística Express",
-  "Bienes Raíces Nacional","Media Digital Ecuador","Agencia Creativa EC",
-  "Laboratorios Andinos","Constructora del Sur",
+  "TechCorp Ecuador","Grupo Financiero Andes","National Pharmaceuticals",
+  "Quito Construction S.A.","Pacific Importers","Sierra Automotive",
+  "Montecristi Textiles","Banana Export S.A.","Eastern Petroleum",
+  "Costa Agriculture","Pacific Insurance","Loja Mining","Andes Telecom",
+  "Valley Foods","Guayas Industrial","National Transport",
+  "Renewable Energy EC","Software Solutions EC","Consulting Partners Quito",
+  "Retail Group Ecuador","Integral Health","EC Higher Education",
+  "Coastal Hospitality","Southern Commerce","Express Logistics",
+  "National Real Estate","Digital Media Ecuador","Creative Agency EC",
+  "Andean Labs","Southern Construction",
 ];
 const REGIONS = ["Quito","Guayaquil","Cuenca","Ambato","Loja","Manta","Riobamba","Machala"];
-const PLANS = [
-  "Plan Corporativo Premium","Plan Corporativo Estándar","Plan Familiar Premium",
-  "Plan Familiar Plus","Plan Individual Básico","Plan Individual Plus",
+const CORP_PLANS = [
+  "Corporate Premium Plan","Corporate Standard Plan","Corporate Family Plan",
+  "Corporate Plus Plan",
 ];
-const SOURCES: { src: LeadSource; weight: number }[] = [
+const INDIVIDUAL_PLANS = [
+  "Individual Plan","Family Plan","Premium Individual",
+  "Individual Basic","Family Plus",
+];
+const CORP_SOURCES: { src: LeadSource; weight: number }[] = [
   { src: "Website Form", weight: 40 },
   { src: "WhatsApp Inbound", weight: 20 },
   { src: "Broker Referral", weight: 15 },
@@ -57,14 +61,20 @@ const SOURCES: { src: LeadSource; weight: number }[] = [
   { src: "Trade Show", weight: 5 },
   { src: "LinkedIn", weight: 5 },
 ];
+const INDIVIDUAL_SOURCES: { src: LeadSource; weight: number }[] = [
+  { src: "Website Form", weight: 40 },
+  { src: "WhatsApp Inbound", weight: 25 },
+  { src: "Call Center", weight: 20 },
+  { src: "Referral", weight: 15 },
+];
 const STAGES: LeadStage[] = ["New","Contacted","Qualified","Won"];
 const CONSENT_METHODS = ["Web form opt-in","Verbal consent recorded","Email opt-in link","WhatsApp confirmation"];
 
-function pickSource(): LeadSource {
+function pickWeightedSource(sources: { src: LeadSource; weight: number }[]): LeadSource {
   const r = rng() * 100;
   let cum = 0;
-  for (const s of SOURCES) { cum += s.weight; if (r < cum) return s.src; }
-  return "Website Form";
+  for (const s of sources) { cum += s.weight; if (r < cum) return s.src; }
+  return sources[0].src;
 }
 
 // ── Sales Reps ──
@@ -74,14 +84,14 @@ export const salesReps: SalesRep[] = [
   { id: "REP-03", name: "Patricia Herrera", region: "Cuenca", email: "p.herrera@saludsa.com" },
   { id: "REP-04", name: "Marco Delgado", region: "Quito", email: "m.delgado@saludsa.com" },
   { id: "REP-05", name: "Silvia Flores", region: "Guayaquil", email: "s.flores@saludsa.com" },
-  { id: "REP-06", name: "Tomás Vega", region: "Ambato", email: "t.vega@saludsa.com" },
-  { id: "REP-07", name: "Lorena Córdova", region: "Manta", email: "l.cordova@saludsa.com" },
-  { id: "REP-08", name: "Javier Suárez", region: "Loja", email: "j.suarez@saludsa.com" },
+  { id: "REP-06", name: "Tomas Vega", region: "Ambato", email: "t.vega@saludsa.com" },
+  { id: "REP-07", name: "Lorena Cordova", region: "Manta", email: "l.cordova@saludsa.com" },
+  { id: "REP-08", name: "Javier Suarez", region: "Loja", email: "j.suarez@saludsa.com" },
   { id: "REP-09", name: "Daniela Torres", region: "Riobamba", email: "d.torres@saludsa.com" },
   { id: "REP-10", name: "Eduardo Sandoval", region: "Machala", email: "e.sandoval@saludsa.com" },
 ];
 
-// ── Generate 200 leads ──
+// ── Time helpers ──
 const NOW = new Date("2026-02-24T12:00:00");
 function daysAgo(d: number) {
   const dt = new Date(NOW);
@@ -90,23 +100,24 @@ function daysAgo(d: number) {
   return dt.toISOString();
 }
 
-function generateLeads(): Lead[] {
+// ── Generate 200 corporate leads ──
+function generateCorporateLeads(): Lead[] {
   const result: Lead[] = [];
   const usedNames = new Set<string>();
   for (let i = 1; i <= 200; i++) {
     let name: string;
     do {
-      name = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+      name = `${pick(CORP_FIRST_NAMES)} ${pick(CORP_LAST_NAMES)}`;
     } while (usedNames.has(name));
     usedNames.add(name);
 
     const company = pick(COMPANIES);
     const region = pick(REGIONS);
     const rep = pick(salesReps);
-    const source = pickSource();
+    const source = pickWeightedSource(CORP_SOURCES);
     const companySize = source === "Broker Referral" || source === "LinkedIn"
       ? randInt(30, 500)
-      : randInt(1, 200);
+      : randInt(5, 200);
     const stage = pick(STAGES);
     const createdDaysAgo = randInt(1, 90);
     const createdAt = daysAgo(createdDaysAgo);
@@ -118,50 +129,121 @@ function generateLeads(): Lead[] {
     const callsCount = randInt(0, 3);
     const requestedQuote = rng() > 0.6;
     const consentStatus = rng() > 0.15 ? "granted" as const : rng() > 0.5 ? "pending" as const : "declined" as const;
+    const planInterest = pick(CORP_PLANS);
 
-    const partial = {
+    const partial: Parameters<typeof calculateScore>[0] = {
       companySize, source, chatInteractions, emailResponses, callsCount,
-      requestedQuote, lastContactedAt,
+      requestedQuote, lastContactedAt, segment: "corporate", planInterest,
     };
     const breakdown = calculateScore(partial);
 
-    const emailUser = name.toLowerCase().replace(/[áéíóúñü]/g, c => {
-      const map: Record<string,string> = {á:"a",é:"e",í:"i",ó:"o",ú:"u",ñ:"n",ü:"u"};
-      return map[c] || c;
-    }).split(" ");
+    const emailUser = name.toLowerCase().replace(/[^a-z ]/g, "").split(" ");
     const emailAddr = `${emailUser[0]}.${emailUser[1]}@${company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10)}.ec`;
 
     result.push({
       id: `LD-${String(i).padStart(3, "0")}`,
-      name,
-      company,
-      email: emailAddr,
+      name, company, email: emailAddr,
       phone: `+593 9${randInt(6, 9)} ${randInt(100, 999)} ${randInt(1000, 9999)}`,
-      source,
-      planInterest: pick(PLANS),
-      stage,
-      qualScore: breakdown.total,
-      qualLevel: qualLevel(breakdown.total),
-      assignedTo: rep.name,
-      region,
-      companySize,
-      createdAt,
-      lastContactedAt,
-      requestedQuote,
-      chatInteractions,
-      emailResponses,
-      callsCount,
+      source, planInterest, stage,
+      qualScore: breakdown.total, qualLevel: qualLevel(breakdown.total),
+      assignedTo: rep.name, region, companySize,
+      createdAt, lastContactedAt, requestedQuote,
+      chatInteractions, emailResponses, callsCount,
       consentStatus,
       consentTimestamp: consentStatus === "granted" ? createdAt : undefined,
       consentMethod: consentStatus === "granted" ? pick(CONSENT_METHODS) : undefined,
       scoreBreakdown: breakdown,
+      segment: "corporate",
     });
   }
   return result;
 }
 
+// ── Generate 25 individual leads ──
+interface IndividualSeed {
+  name: string; plan: string; source: LeadSource; stage: LeadStage;
+  householdSize: number; dependents: number; coverageLevel: string;
+  budgetRange: string; decisionTimeline: string;
+}
+
+const INDIVIDUAL_SEEDS: IndividualSeed[] = [
+  { name: "Emily Carter", plan: "Family Plan", source: "Website Form", stage: "Qualified", householdSize: 4, dependents: 2, coverageLevel: "Premium", budgetRange: "$200-$350/mo", decisionTimeline: "< 30 days" },
+  { name: "James Rodriguez", plan: "Premium Individual", source: "WhatsApp Inbound", stage: "Contacted", householdSize: 1, dependents: 0, coverageLevel: "Premium", budgetRange: "$100-$150/mo", decisionTimeline: "< 30 days" },
+  { name: "Olivia Chen", plan: "Family Plan", source: "Call Center", stage: "New", householdSize: 5, dependents: 3, coverageLevel: "Standard", budgetRange: "$150-$250/mo", decisionTimeline: "1-3 months" },
+  { name: "Daniel Foster", plan: "Individual Basic", source: "Website Form", stage: "Contacted", householdSize: 1, dependents: 0, coverageLevel: "Basic", budgetRange: "$50-$80/mo", decisionTimeline: "1-3 months" },
+  { name: "Sarah Mitchell", plan: "Family Plan", source: "Referral", stage: "Won", householdSize: 3, dependents: 1, coverageLevel: "Premium", budgetRange: "$250-$400/mo", decisionTimeline: "Immediate" },
+  { name: "Michael Thompson", plan: "Individual Plan", source: "Website Form", stage: "New", householdSize: 1, dependents: 0, coverageLevel: "Standard", budgetRange: "$60-$100/mo", decisionTimeline: "Exploring" },
+  { name: "Jessica Lee", plan: "Family Plus", source: "WhatsApp Inbound", stage: "Qualified", householdSize: 4, dependents: 2, coverageLevel: "Premium", budgetRange: "$300-$450/mo", decisionTimeline: "< 2 weeks" },
+  { name: "David Nguyen", plan: "Premium Individual", source: "Website Form", stage: "Won", householdSize: 2, dependents: 0, coverageLevel: "Premium", budgetRange: "$120-$180/mo", decisionTimeline: "< 30 days" },
+  { name: "Amanda Brooks", plan: "Family Plan", source: "Call Center", stage: "Contacted", householdSize: 5, dependents: 3, coverageLevel: "Standard", budgetRange: "$200-$300/mo", decisionTimeline: "1-3 months" },
+  { name: "Christopher White", plan: "Individual Plan", source: "Website Form", stage: "Lost", householdSize: 1, dependents: 0, coverageLevel: "Basic", budgetRange: "$40-$60/mo", decisionTimeline: "Exploring" },
+  { name: "Rachel Kim", plan: "Family Plan", source: "Referral", stage: "Qualified", householdSize: 3, dependents: 1, coverageLevel: "Premium", budgetRange: "$200-$350/mo", decisionTimeline: "< 30 days" },
+  { name: "Andrew Martinez", plan: "Individual Basic", source: "WhatsApp Inbound", stage: "New", householdSize: 1, dependents: 0, coverageLevel: "Basic", budgetRange: "$50-$75/mo", decisionTimeline: "1-3 months" },
+  { name: "Lauren Davis", plan: "Family Plus", source: "Website Form", stage: "Contacted", householdSize: 4, dependents: 2, coverageLevel: "Standard", budgetRange: "$180-$280/mo", decisionTimeline: "< 30 days" },
+  { name: "Brian Wilson", plan: "Premium Individual", source: "Call Center", stage: "New", householdSize: 2, dependents: 1, coverageLevel: "Premium", budgetRange: "$130-$200/mo", decisionTimeline: "Exploring" },
+  { name: "Megan Taylor", plan: "Family Plan", source: "Website Form", stage: "Lost", householdSize: 3, dependents: 1, coverageLevel: "Standard", budgetRange: "$150-$250/mo", decisionTimeline: "1-3 months" },
+  { name: "Kevin Brown", plan: "Individual Plan", source: "WhatsApp Inbound", stage: "Contacted", householdSize: 1, dependents: 0, coverageLevel: "Standard", budgetRange: "$70-$110/mo", decisionTimeline: "< 30 days" },
+  { name: "Stephanie Garcia", plan: "Family Plan", source: "Referral", stage: "Qualified", householdSize: 6, dependents: 4, coverageLevel: "Premium", budgetRange: "$350-$500/mo", decisionTimeline: "< 2 weeks" },
+  { name: "Jason Clark", plan: "Individual Basic", source: "Website Form", stage: "New", householdSize: 1, dependents: 0, coverageLevel: "Basic", budgetRange: "$45-$70/mo", decisionTimeline: "Exploring" },
+  { name: "Nicole Adams", plan: "Family Plus", source: "Call Center", stage: "Contacted", householdSize: 4, dependents: 2, coverageLevel: "Standard", budgetRange: "$200-$320/mo", decisionTimeline: "1-3 months" },
+  { name: "Ryan Moore", plan: "Premium Individual", source: "Website Form", stage: "Qualified", householdSize: 1, dependents: 0, coverageLevel: "Premium", budgetRange: "$110-$160/mo", decisionTimeline: "< 30 days" },
+  { name: "Ashley Johnson", plan: "Family Plan", source: "WhatsApp Inbound", stage: "New", householdSize: 5, dependents: 3, coverageLevel: "Standard", budgetRange: "$180-$300/mo", decisionTimeline: "1-3 months" },
+  { name: "Matthew Harris", plan: "Individual Plan", source: "Website Form", stage: "Contacted", householdSize: 2, dependents: 1, coverageLevel: "Standard", budgetRange: "$80-$120/mo", decisionTimeline: "< 30 days" },
+  { name: "Samantha Robinson", plan: "Family Plan", source: "Referral", stage: "Won", householdSize: 4, dependents: 2, coverageLevel: "Premium", budgetRange: "$280-$400/mo", decisionTimeline: "Immediate" },
+  { name: "Tyler Evans", plan: "Individual Basic", source: "Call Center", stage: "Lost", householdSize: 1, dependents: 0, coverageLevel: "Basic", budgetRange: "$40-$60/mo", decisionTimeline: "Exploring" },
+  { name: "Brittany Scott", plan: "Family Plus", source: "Website Form", stage: "Contacted", householdSize: 3, dependents: 1, coverageLevel: "Standard", budgetRange: "$170-$260/mo", decisionTimeline: "< 30 days" },
+];
+
+function generateIndividualLeads(startId: number): Lead[] {
+  return INDIVIDUAL_SEEDS.map((seed, i) => {
+    const id = `LD-${String(startId + i).padStart(3, "0")}`;
+    const region = pick(REGIONS);
+    const rep = pick(salesReps);
+    const createdDaysAgo = randInt(1, 60);
+    const createdAt = daysAgo(createdDaysAgo);
+    const contacted = seed.stage !== "New";
+    const lastContactedDaysAgo = contacted ? randInt(0, Math.min(createdDaysAgo, 10)) : 0;
+    const lastContactedAt = contacted ? daysAgo(lastContactedDaysAgo) : "";
+    const chatInteractions = randInt(0, 5);
+    const emailResponses = randInt(0, 3);
+    const callsCount = randInt(0, 2);
+    const requestedQuote = rng() > 0.5;
+    const consentStatus = rng() > 0.2 ? "granted" as const : "pending" as const;
+
+    const partial: Parameters<typeof calculateScore>[0] = {
+      companySize: 1, source: seed.source, chatInteractions, emailResponses, callsCount,
+      requestedQuote, lastContactedAt, segment: "individual", planInterest: seed.plan,
+      householdSize: seed.householdSize, decisionTimeline: seed.decisionTimeline,
+    };
+    const breakdown = calculateScore(partial);
+
+    const emailUser = seed.name.toLowerCase().replace(/[^a-z ]/g, "").split(" ");
+    const emailAddr = `${emailUser[0]}.${emailUser[1]}@gmail.com`;
+
+    return {
+      id, name: seed.name, company: "Individual", email: emailAddr,
+      phone: `+593 9${randInt(6, 9)} ${randInt(100, 999)} ${randInt(1000, 9999)}`,
+      source: seed.source, planInterest: seed.plan, stage: seed.stage,
+      qualScore: breakdown.total, qualLevel: qualLevel(breakdown.total),
+      assignedTo: rep.name, region, companySize: 1,
+      createdAt, lastContactedAt, requestedQuote,
+      chatInteractions, emailResponses, callsCount,
+      consentStatus,
+      consentTimestamp: consentStatus === "granted" ? createdAt : undefined,
+      consentMethod: consentStatus === "granted" ? pick(CONSENT_METHODS) : undefined,
+      scoreBreakdown: breakdown,
+      segment: "individual" as const,
+      householdSize: seed.householdSize,
+      dependents: seed.dependents,
+      coverageLevel: seed.coverageLevel,
+      budgetRange: seed.budgetRange,
+      decisionTimeline: seed.decisionTimeline,
+    };
+  });
+}
+
 // ── Generate activities ──
-const ACTIVITY_TEMPLATES: { type: Activity["type"]; titles: string[] }[] = [
+const CORP_ACTIVITY_TEMPLATES: { type: Activity["type"]; titles: string[] }[] = [
   { type: "note", titles: ["Lead captured","Initial assessment","Research completed","Notes updated"] },
   { type: "call", titles: ["Outbound call","Follow-up call","Qualification call","Demo scheduling call"] },
   { type: "email", titles: ["Welcome email sent","Plan comparison sent","Follow-up email","Proposal sent"] },
@@ -170,24 +252,34 @@ const ACTIVITY_TEMPLATES: { type: Activity["type"]; titles: string[] }[] = [
   { type: "task", titles: ["Send proposal","Schedule demo","Prepare ROI analysis","Follow-up reminder"] },
 ];
 
+const INDIVIDUAL_ACTIVITY_TEMPLATES: { type: Activity["type"]; titles: string[] }[] = [
+  { type: "note", titles: ["Website form submitted for family plan","Premium estimate request noted","Coverage inquiry logged"] },
+  { type: "call", titles: ["Scheduled phone call with advisor","Follow-up call about coverage","Advisor consultation call"] },
+  { type: "email", titles: ["Monthly premium estimate sent","Plan comparison email","Coverage options email"] },
+  { type: "chat", titles: ["WhatsApp conversation about pediatric coverage","Asked about maternity add-on","Requested monthly premium estimate","Chat about dental coverage"] },
+  { type: "task", titles: ["Send family plan brochure","Schedule advisor callback","Prepare premium quote"] },
+];
+
 function generateActivities(leads: Lead[]): Activity[] {
   const result: Activity[] = [];
   let id = 1;
   for (const lead of leads) {
     const count = randInt(2, 10);
     const created = new Date(lead.createdAt);
+    const templates = lead.segment === "individual" ? INDIVIDUAL_ACTIVITY_TEMPLATES : CORP_ACTIVITY_TEMPLATES;
     for (let j = 0; j < count; j++) {
-      const tmpl = pick(ACTIVITY_TEMPLATES);
+      const tmpl = pick(templates);
       const dayOffset = randInt(0, Math.max(1, Math.floor((NOW.getTime() - created.getTime()) / 86400000)));
       const actDate = new Date(created);
       actDate.setDate(actDate.getDate() + dayOffset);
       actDate.setHours(randInt(8, 17), randInt(0, 59));
+      const companyLabel = lead.segment === "individual" ? "" : ` at ${lead.company}`;
       result.push({
         id: `A${id++}`,
         leadId: lead.id,
         type: tmpl.type,
         title: pick(tmpl.titles),
-        description: `${pick(tmpl.titles)} for ${lead.name} at ${lead.company}.`,
+        description: `${pick(tmpl.titles)} for ${lead.name}${companyLabel}.`,
         date: actDate.toISOString(),
         completed: tmpl.type === "task" ? rng() > 0.5 : undefined,
         actor: lead.assignedTo,
@@ -202,11 +294,11 @@ function generateTasks(leads: Lead[]): Task[] {
   const taskTypes: Task["type"][] = ["call","email","meeting"];
   const taskTitles = [
     "Send proposal document","Follow-up call","Schedule product demo",
-    "Send broker referral info","Prepare ROI analysis","Contract review",
+    "Send referral info","Prepare quote","Contract review",
     "Send pricing comparison","Follow-up on coverage questions",
   ];
   const result: Task[] = [];
-  const subset = pickN(leads.filter(l => l.stage !== "Won"), 20);
+  const subset = pickN(leads.filter(l => l.stage !== "Won" && l.stage !== "Lost"), 20);
   let id = 1;
   for (const lead of subset) {
     const due = new Date(NOW);
@@ -224,166 +316,326 @@ function generateTasks(leads: Lead[]): Task[] {
   return result;
 }
 
-// ── Generate conversations ──
-const SAMPLE_MSGS_ES: string[][] = [
+// ── Generate conversations (English) ──
+const CORP_MSG_TEMPLATES: string[][] = [
   [
-    "¡Hola! Soy {agent} de Saludsa. Recibimos tu solicitud sobre nuestro {plan}. ¿Tienes unos minutos para conversar?",
-    "¡Hola! Sí, claro. Estamos buscando un plan de salud para nuestros empleados.",
-    "Perfecto. El {plan} incluye cobertura médica completa, dental, y acceso a nuestra red de especialistas. ¿Les interesa la cobertura internacional?",
-    "Sí, tenemos empleados que viajan frecuentemente. ¿Qué cobertura tienen fuera del país?",
-    "El plan incluye cobertura de emergencias internacionales hasta $500,000. Te envío el detalle por correo.",
-    "Me interesa mucho. ¿Podemos agendar una reunión con nuestro director de RRHH?",
+    "Hi! I'm {agent} from Saludsa. We received your inquiry about our {plan}. Do you have a few minutes to chat?",
+    "Hello! Yes, of course. We're looking for a health plan for our employees.",
+    "Great. The {plan} includes full medical coverage, dental, and access to our specialist network. Are you interested in international coverage?",
+    "Yes, we have employees who travel frequently. What coverage do you offer abroad?",
+    "The plan includes international emergency coverage up to $500,000. I'll send you the details by email.",
+    "That sounds great. Can we schedule a meeting with our HR director?",
   ],
   [
-    "Buenos días, le contacto de Saludsa respecto a la cotización que solicitó.",
-    "Buenos días, sí, necesito información para mi empresa de {size} empleados.",
-    "Tenemos opciones corporativas muy competitivas. ¿Qué cobertura necesitan prioritariamente?",
-    "Necesitamos cobertura dental y de maternidad obligatoriamente.",
-    "Ambas están incluidas en nuestro Plan Corporativo. Le preparo una propuesta personalizada.",
-    "Perfecto, quedo atenta. Mi correo es {email}.",
+    "Good morning, I'm reaching out from Saludsa regarding the quote you requested.",
+    "Good morning, yes, I need information for my company of {size} employees.",
+    "We have very competitive corporate options. What coverage do you need as a priority?",
+    "We need dental and maternity coverage as mandatory benefits.",
+    "Both are included in our Corporate Plan. I'll prepare a customized proposal for you.",
+    "Perfect, I'll be waiting. My email is {email}.",
+  ],
+];
+
+const INDIVIDUAL_MSG_TEMPLATES: string[][] = [
+  [
+    "Hi! I'm {agent} from Saludsa. I see you submitted a form about our family plans. How can I help?",
+    "Hello! Yes, I'm looking for coverage for my family of 4.",
+    "Great choice! Our Family Plan covers up to 6 members. What's your main priority — pediatric care, maternity, or general coverage?",
+    "Pediatric care is our top priority. We have two young kids.",
+    "Our Family Plan includes full pediatric coverage including preventive care. Would you like a premium estimate?",
+    "Yes please! What would the monthly cost be approximately?",
+    "For a family of 4 with premium pediatric coverage, plans start at $220/month. I'll send you a detailed quote.",
+    "That's within our budget. Can we schedule a call to finalize?",
   ],
   [
-    "Hola, vi su anuncio en LinkedIn sobre planes corporativos de salud.",
-    "¡Hola! Gracias por escribirnos. ¿Para cuántas personas necesita cobertura?",
-    "Somos una empresa de {size} personas, buscamos cambiar de proveedor.",
-    "Entiendo. ¿Cuál es su presupuesto mensual por empleado?",
-    "Actualmente pagamos $85 por empleado. ¿Pueden ofrecer algo similar?",
-    "Tenemos opciones desde $70 por empleado con coberturas superiores. Le envío comparativa.",
+    "Hello! Thanks for reaching out on WhatsApp. I'm {agent}, your health plan advisor.",
+    "Hi! I need an individual health plan. I'm self-employed and currently uninsured.",
+    "I understand. We have plans starting from $55/month. Do you need dental and vision coverage?",
+    "Yes, dental for sure. Vision would be nice too.",
+    "Our Premium Individual plan includes both. Can I ask about your budget range?",
+    "I'm thinking around $100-150 per month.",
+    "Perfect, that fits our Premium Individual plan. I'll prepare your pricing quote right away.",
+  ],
+  [
+    "Hi there! I noticed you were browsing our family plan options on the website.",
+    "Yes, I'm interested in the maternity add-on. Is that available?",
+    "Absolutely! Our maternity coverage includes prenatal, delivery, and postnatal care. How soon do you need coverage?",
+    "We're planning to start a family soon, so within the next couple of months.",
+    "I'd recommend our Family Plus plan with the maternity benefit. Would you like me to send you the details?",
+    "Yes, that would be great. Also, does it cover pediatric care for the newborn?",
+    "Yes, the newborn is automatically covered from birth. I'll email you the full breakdown.",
+  ],
+];
+
+const CORP_EMAIL_TEMPLATE: string[][] = [
+  [
+    "Subject: Corporate Health Plan Inquiry — 85 employees\n\nDear Saludsa team,\n\nI'm reaching out to explore corporate health plan options for our company of 85 employees. We're currently evaluating providers for Q2.\n\nBest regards",
+    "Dear {lead},\n\nThank you for your interest! I'd be happy to discuss our corporate plans. For a company of 85 employees, we can offer significant volume discounts.\n\nWould next Tuesday at 10am work for a brief call?\n\nBest,\n{agent}",
+    "That works perfectly. Please send a calendar invite to my email.\n\nAlso, do your plans include international emergency coverage? Several of our executives travel frequently.",
+    "Absolutely. Our Corporate Premium plan includes international coverage up to $500K. I'll include that in our discussion.\n\nCalendar invite sent!",
+  ],
+];
+
+const WEB_CHAT_INDIVIDUAL_TEMPLATE: string[][] = [
+  [
+    "Hello! Welcome to Saludsa. How can I help you today?",
+    "Hi, I'm looking for a health plan for myself and my 2 kids.",
+    "I'd be happy to help! Are you looking for our Family Plan or Individual plans for each person?",
+    "A family plan would be better. What does it cover?",
+    "Our Family Plan includes medical, dental, and preventive care for up to 6 members. Plans start at $180/month. Would you like a personalized quote?",
+    "Yes please. How do I get started?",
+    "I'll connect you with an advisor who can walk you through the options. Can I get your name and preferred contact method?",
   ],
 ];
 
 function generateConversations(leads: Lead[]): Conversation[] {
   const result: Conversation[] = [];
-  const channels: Channel[] = ["whatsapp","webchat","email","phone"];
-  const convLeads = pickN(leads.filter(l => l.stage !== "New"), 30);
   let id = 1;
-  for (const lead of convLeads) {
-    const channel = pick(channels);
-    const template = pick(SAMPLE_MSGS_ES);
+
+  // 2 WhatsApp for corporate
+  const corpLeads = leads.filter(l => l.segment === "corporate" && l.stage !== "New");
+  const corpWA = pickN(corpLeads, 2);
+  for (const lead of corpWA) {
+    const template = pick(CORP_MSG_TEMPLATES);
     const messages: ChatMessage[] = template.map((text, i) => ({
       id: `CM${id}-${i}`,
       sender: (i % 2 === 0 ? "agent" : "lead") as "agent" | "lead",
-      text: text
-        .replace("{agent}", lead.assignedTo.split(" ")[0])
-        .replace("{plan}", lead.planInterest)
-        .replace("{size}", String(lead.companySize))
-        .replace("{email}", lead.email),
+      text: text.replace("{agent}", lead.assignedTo.split(" ")[0]).replace("{plan}", lead.planInterest).replace("{size}", String(lead.companySize)).replace("{email}", lead.email),
       time: `${10 + Math.floor(i / 2)}:${30 + (i % 2) * 3}`,
-      channel,
+      channel: "whatsapp" as Channel,
     }));
     result.push({
-      id: `CONV-${id}`,
-      leadId: lead.id,
-      leadName: lead.name,
-      channel,
+      id: `CONV-${id}`, leadId: lead.id, leadName: lead.name, channel: "whatsapp",
       assignedAgent: lead.assignedTo,
       lastMessage: messages[messages.length - 1].text.slice(0, 60),
       lastMessageTime: messages[messages.length - 1].time,
-      unreadCount: rng() > 0.6 ? randInt(1, 5) : 0,
-      messages,
-      createdAt: lead.createdAt,
+      unreadCount: rng() > 0.6 ? randInt(1, 3) : 0,
+      messages, createdAt: lead.createdAt,
     });
     id++;
   }
+
+  // 2 WhatsApp for individual
+  const indivLeads = leads.filter(l => l.segment === "individual" && l.stage !== "New");
+  const indivWA = pickN(indivLeads, 2);
+  for (const lead of indivWA) {
+    const template = pick(INDIVIDUAL_MSG_TEMPLATES);
+    const messages: ChatMessage[] = template.map((text, i) => ({
+      id: `CM${id}-${i}`,
+      sender: (i % 2 === 0 ? "agent" : "lead") as "agent" | "lead",
+      text: text.replace("{agent}", lead.assignedTo.split(" ")[0]).replace("{plan}", lead.planInterest).replace("{lead}", lead.name),
+      time: `${9 + Math.floor(i / 2)}:${15 + (i % 2) * 5}`,
+      channel: "whatsapp" as Channel,
+    }));
+    result.push({
+      id: `CONV-${id}`, leadId: lead.id, leadName: lead.name, channel: "whatsapp",
+      assignedAgent: lead.assignedTo,
+      lastMessage: messages[messages.length - 1].text.slice(0, 60),
+      lastMessageTime: messages[messages.length - 1].time,
+      unreadCount: rng() > 0.5 ? randInt(1, 4) : 0,
+      messages, createdAt: lead.createdAt,
+    });
+    id++;
+  }
+
+  // 1 email thread for corporate
+  const corpEmail = pickN(corpLeads.filter(l => !corpWA.includes(l)), 1);
+  for (const lead of corpEmail) {
+    const template = CORP_EMAIL_TEMPLATE[0];
+    const messages: ChatMessage[] = template.map((text, i) => ({
+      id: `CM${id}-${i}`,
+      sender: (i % 2 === 0 ? "lead" : "agent") as "agent" | "lead",
+      text: text.replace("{agent}", lead.assignedTo.split(" ")[0]).replace("{lead}", lead.name),
+      time: `${8 + i}:00`,
+      channel: "email" as Channel,
+    }));
+    result.push({
+      id: `CONV-${id}`, leadId: lead.id, leadName: lead.name, channel: "email",
+      assignedAgent: lead.assignedTo,
+      lastMessage: messages[messages.length - 1].text.slice(0, 60),
+      lastMessageTime: messages[messages.length - 1].time,
+      unreadCount: 0,
+      messages, createdAt: lead.createdAt,
+    });
+    id++;
+  }
+
+  // 1 web chat transcript for individual
+  const indivWebChat = pickN(indivLeads.filter(l => !indivWA.includes(l)), 1);
+  for (const lead of indivWebChat) {
+    const template = WEB_CHAT_INDIVIDUAL_TEMPLATE[0];
+    const messages: ChatMessage[] = template.map((text, i) => ({
+      id: `CM${id}-${i}`,
+      sender: (i % 2 === 0 ? "bot" : "lead") as "bot" | "lead",
+      text: text,
+      time: `${14 + Math.floor(i / 2)}:${10 + (i % 2) * 5}`,
+      channel: "webchat" as Channel,
+    }));
+    result.push({
+      id: `CONV-${id}`, leadId: lead.id, leadName: lead.name, channel: "webchat",
+      assignedAgent: lead.assignedTo,
+      lastMessage: messages[messages.length - 1].text.slice(0, 60),
+      lastMessageTime: messages[messages.length - 1].time,
+      unreadCount: 1,
+      messages, createdAt: lead.createdAt,
+    });
+    id++;
+  }
+
+  // Additional conversations from remaining corporate leads
+  const remainingCorp = pickN(corpLeads.filter(l => !corpWA.includes(l) && !corpEmail.includes(l)), 10);
+  for (const lead of remainingCorp) {
+    const channel = pick(["whatsapp", "webchat", "phone"] as Channel[]);
+    const template = pick(CORP_MSG_TEMPLATES);
+    const messages: ChatMessage[] = template.map((text, i) => ({
+      id: `CM${id}-${i}`,
+      sender: (i % 2 === 0 ? "agent" : "lead") as "agent" | "lead",
+      text: text.replace("{agent}", lead.assignedTo.split(" ")[0]).replace("{plan}", lead.planInterest).replace("{size}", String(lead.companySize)).replace("{email}", lead.email),
+      time: `${10 + Math.floor(i / 2)}:${20 + (i % 2) * 7}`,
+      channel,
+    }));
+    result.push({
+      id: `CONV-${id}`, leadId: lead.id, leadName: lead.name, channel,
+      assignedAgent: lead.assignedTo,
+      lastMessage: messages[messages.length - 1].text.slice(0, 60),
+      lastMessageTime: messages[messages.length - 1].time,
+      unreadCount: rng() > 0.7 ? randInt(1, 3) : 0,
+      messages, createdAt: lead.createdAt,
+    });
+    id++;
+  }
+
+  // Additional individual conversations
+  const remainingIndiv = pickN(indivLeads.filter(l => !indivWA.includes(l) && !indivWebChat.includes(l)), 5);
+  for (const lead of remainingIndiv) {
+    const channel = pick(["whatsapp", "webchat"] as Channel[]);
+    const template = pick(INDIVIDUAL_MSG_TEMPLATES);
+    const messages: ChatMessage[] = template.map((text, i) => ({
+      id: `CM${id}-${i}`,
+      sender: (i % 2 === 0 ? "agent" : "lead") as "agent" | "lead",
+      text: text.replace("{agent}", lead.assignedTo.split(" ")[0]).replace("{plan}", lead.planInterest).replace("{lead}", lead.name),
+      time: `${11 + Math.floor(i / 2)}:${5 + (i % 2) * 8}`,
+      channel,
+    }));
+    result.push({
+      id: `CONV-${id}`, leadId: lead.id, leadName: lead.name, channel,
+      assignedAgent: lead.assignedTo,
+      lastMessage: messages[messages.length - 1].text.slice(0, 60),
+      lastMessageTime: messages[messages.length - 1].time,
+      unreadCount: rng() > 0.5 ? randInt(1, 2) : 0,
+      messages, createdAt: lead.createdAt,
+    });
+    id++;
+  }
+
   return result;
 }
 
-// ── Web Chat demo flows ──
+// ── Web Chat demo flows (English) ──
 export const webChatDemoFlows: { id: string; title: string; messages: ChatMessage[] }[] = [
   {
     id: "demo-1",
-    title: "Consulta Corporativa Premium",
+    title: "Family Coverage Inquiry",
     messages: [
-      { id: "WC1-1", sender: "bot", text: "¡Bienvenido a Saludsa! 👋 Soy su asistente virtual. ¿En qué puedo ayudarle hoy?", time: "09:00" },
-      { id: "WC1-2", sender: "lead", text: "Hola, busco un plan de salud corporativo para mi empresa.", time: "09:01" },
-      { id: "WC1-3", sender: "bot", text: "¡Excelente! Me encantaría ayudarle. ¿Cuántos empleados tiene su empresa?", time: "09:01" },
-      { id: "WC1-4", sender: "lead", text: "Somos 75 personas actualmente.", time: "09:02" },
-      { id: "WC1-5", sender: "bot", text: "Perfecto, para una empresa de 75 empleados tenemos opciones muy competitivas. ¿En qué plazo necesitan activar el plan?", time: "09:02" },
-      { id: "WC1-6", sender: "lead", text: "Necesitamos tenerlo listo para abril.", time: "09:03" },
-      { id: "WC1-7", sender: "bot", text: "Entendido. ¿Necesitan cobertura internacional para viajes de negocios?", time: "09:03" },
-      { id: "WC1-8", sender: "lead", text: "Sí, es importante. Varios ejecutivos viajan a Colombia y Perú.", time: "09:04" },
-      { id: "WC1-9", sender: "bot", text: "¿Fueron referidos por algún broker o corredor de seguros?", time: "09:04" },
-      { id: "WC1-10", sender: "lead", text: "Sí, nos recomendó Seguros del Pacífico.", time: "09:05" },
-      { id: "WC1-11", sender: "bot", text: "Para enviarle una cotización personalizada, ¿podría proporcionarme su nombre, empresa y correo electrónico?", time: "09:05" },
-      { id: "WC1-12", sender: "lead", text: "Soy Rafael Moreno de Industrial Guayas. rafael.moreno@indguayas.ec", time: "09:06" },
-      { id: "WC1-13", sender: "bot", text: "Gracias, Rafael. Para procesar su solicitud necesitamos su consentimiento para el tratamiento de datos personales. ¿Acepta nuestra política de privacidad?", time: "09:06" },
-      { id: "WC1-14", sender: "lead", text: "Sí, acepto.", time: "09:07" },
-      { id: "WC1-15", sender: "bot", text: "✅ Registro completado. Un asesor especializado en planes corporativos le contactará en las próximas 2 horas. ¡Gracias por elegir Saludsa!", time: "09:07" },
+      { id: "WC1-1", sender: "bot", text: "Hello! I can help you choose a health plan. Are you looking for coverage for yourself, your family, or your company?", time: "09:00" },
+      { id: "WC1-2", sender: "lead", text: "My family. We're a family of 4.", time: "09:01" },
+      { id: "WC1-3", sender: "bot", text: "Great! How many dependents need coverage?", time: "09:01" },
+      { id: "WC1-4", sender: "lead", text: "2 children, ages 5 and 8.", time: "09:02" },
+      { id: "WC1-5", sender: "bot", text: "What's your coverage priority? Pediatric care, maternity, dental, or general medical?", time: "09:02" },
+      { id: "WC1-6", sender: "lead", text: "Pediatric care and dental are the most important for us.", time: "09:03" },
+      { id: "WC1-7", sender: "bot", text: "What's your monthly budget range for the family plan?", time: "09:03" },
+      { id: "WC1-8", sender: "lead", text: "Around $200 to $350 per month.", time: "09:04" },
+      { id: "WC1-9", sender: "bot", text: "When do you need the coverage to start?", time: "09:04" },
+      { id: "WC1-10", sender: "lead", text: "As soon as possible, within the next 2 weeks ideally.", time: "09:05" },
+      { id: "WC1-11", sender: "bot", text: "Were you referred by an existing member or did you find us online?", time: "09:05" },
+      { id: "WC1-12", sender: "lead", text: "A friend who's a member recommended you.", time: "09:06" },
+      { id: "WC1-13", sender: "bot", text: "To send you a personalized quote, could you share your name and email?", time: "09:06" },
+      { id: "WC1-14", sender: "lead", text: "Lisa Parker, lisa.parker@gmail.com", time: "09:07" },
+      { id: "WC1-15", sender: "bot", text: "Do you consent to Saludsa processing your personal data per our privacy policy?", time: "09:07" },
+      { id: "WC1-16", sender: "lead", text: "Yes, I consent.", time: "09:08" },
+      { id: "WC1-17", sender: "bot", text: "✅ Thank you, Lisa! Based on your needs, I recommend our Family Plan with pediatric and dental add-ons. An advisor will contact you within 2 hours. Would you prefer a phone call or email?", time: "09:08" },
+      { id: "WC1-18", sender: "lead", text: "Phone call please.", time: "09:09" },
+      { id: "WC1-19", sender: "bot", text: "Perfect! An advisor will call you shortly. Thank you for choosing Saludsa!", time: "09:09" },
     ],
   },
   {
     id: "demo-2",
-    title: "Plan Familiar Urgente",
+    title: "Individual Premium Inquiry",
     messages: [
-      { id: "WC2-1", sender: "bot", text: "¡Bienvenido a Saludsa! 👋 ¿En qué puedo ayudarle?", time: "14:00" },
-      { id: "WC2-2", sender: "lead", text: "Necesito un plan familiar urgente, mi esposa está embarazada.", time: "14:01" },
-      { id: "WC2-3", sender: "bot", text: "Entiendo la urgencia. ¿Cuántas personas necesitan cobertura?", time: "14:01" },
-      { id: "WC2-4", sender: "lead", text: "Somos 4: mi esposa, mis dos hijos y yo.", time: "14:02" },
-      { id: "WC2-5", sender: "bot", text: "Para una familia de 4, nuestro Plan Familiar Premium incluye cobertura de maternidad completa. ¿Necesitan cobertura internacional?", time: "14:02" },
-      { id: "WC2-6", sender: "lead", text: "No, solo Ecuador.", time: "14:03" },
-      { id: "WC2-7", sender: "bot", text: "¿Tienen alguna referencia de un broker?", time: "14:03" },
-      { id: "WC2-8", sender: "lead", text: "No, encontré Saludsa buscando en internet.", time: "14:04" },
-      { id: "WC2-9", sender: "bot", text: "Para enviarle la cotización inmediatamente, ¿me proporciona su nombre y correo?", time: "14:04" },
-      { id: "WC2-10", sender: "lead", text: "Julio Herrera, julio.herrera@gmail.com", time: "14:05" },
-      { id: "WC2-11", sender: "bot", text: "¿Acepta el tratamiento de sus datos personales conforme a nuestra política de privacidad?", time: "14:05" },
-      { id: "WC2-12", sender: "lead", text: "Sí, acepto.", time: "14:06" },
-      { id: "WC2-13", sender: "bot", text: "✅ Dado que indica urgencia, un asesor le llamará en los próximos 30 minutos. ¡Gracias por confiar en Saludsa!", time: "14:06" },
+      { id: "WC2-1", sender: "bot", text: "Hello! I can help you choose a health plan. Are you looking for coverage for yourself, your family, or your company?", time: "11:00" },
+      { id: "WC2-2", sender: "lead", text: "Just for myself.", time: "11:01" },
+      { id: "WC2-3", sender: "bot", text: "Great! Our Individual plans start from $55/month. Do you need dental and vision coverage?", time: "11:01" },
+      { id: "WC2-4", sender: "lead", text: "Yes, I want comprehensive coverage including dental.", time: "11:02" },
+      { id: "WC2-5", sender: "bot", text: "Our Premium Individual plan includes dental, vision, and international emergency coverage. What's your budget range?", time: "11:02" },
+      { id: "WC2-6", sender: "lead", text: "I can do $100-150 per month.", time: "11:03" },
+      { id: "WC2-7", sender: "bot", text: "That fits our Premium Individual plan perfectly. When do you need coverage to begin?", time: "11:03" },
+      { id: "WC2-8", sender: "lead", text: "Within the next month, I'm switching jobs and losing my current coverage.", time: "11:04" },
+      { id: "WC2-9", sender: "bot", text: "I understand the urgency. Can I have your name and email to send a detailed quote?", time: "11:04" },
+      { id: "WC2-10", sender: "lead", text: "Mark Sullivan, mark.sullivan@outlook.com", time: "11:05" },
+      { id: "WC2-11", sender: "bot", text: "Do you consent to our privacy policy for processing your data?", time: "11:05" },
+      { id: "WC2-12", sender: "lead", text: "Yes.", time: "11:06" },
+      { id: "WC2-13", sender: "bot", text: "✅ All set, Mark! I'll send you the Premium Individual quote right away. An advisor will follow up within 24 hours. Thank you!", time: "11:06" },
     ],
   },
   {
     id: "demo-3",
-    title: "Consulta Individual por Pricing",
+    title: "Corporate Plan Inquiry",
     messages: [
-      { id: "WC3-1", sender: "bot", text: "¡Hola! Bienvenido a Saludsa. ¿Cómo puedo asistirle?", time: "11:00" },
-      { id: "WC3-2", sender: "lead", text: "Quiero saber los precios de un plan individual.", time: "11:01" },
-      { id: "WC3-3", sender: "bot", text: "Con gusto. ¿Solo para usted o incluye dependientes?", time: "11:01" },
-      { id: "WC3-4", sender: "lead", text: "Solo para mí.", time: "11:02" },
-      { id: "WC3-5", sender: "bot", text: "Nuestro Plan Individual Básico inicia desde $45/mes y el Plus desde $75/mes. ¿Le interesa alguno en particular?", time: "11:02" },
-      { id: "WC3-6", sender: "lead", text: "¿Qué incluye el Plus que no tenga el Básico?", time: "11:03" },
-      { id: "WC3-7", sender: "bot", text: "El Plus agrega dental, visión y cobertura de emergencia internacional. ¿Desea una cotización formal?", time: "11:03" },
-      { id: "WC3-8", sender: "lead", text: "Sí, me interesa el pricing completo.", time: "11:04" },
-      { id: "WC3-9", sender: "bot", text: "¿Me comparte su nombre y correo para enviarle la cotización?", time: "11:04" },
-      { id: "WC3-10", sender: "lead", text: "Sandra López, sandra.lopez@outlook.com", time: "11:05" },
-      { id: "WC3-11", sender: "bot", text: "¿Acepta nuestra política de privacidad para el tratamiento de sus datos?", time: "11:05" },
-      { id: "WC3-12", sender: "lead", text: "Sí.", time: "11:06" },
-      { id: "WC3-13", sender: "bot", text: "✅ Cotización enviada a su correo. Un asesor le contactará para resolver cualquier duda. ¡Gracias!", time: "11:06" },
+      { id: "WC3-1", sender: "bot", text: "Hello! I can help you choose a health plan. Are you looking for coverage for yourself, your family, or your company?", time: "14:00" },
+      { id: "WC3-2", sender: "lead", text: "My company. We have about 60 employees.", time: "14:01" },
+      { id: "WC3-3", sender: "bot", text: "Excellent! For 60 employees we have very competitive corporate options. What's your industry?", time: "14:01" },
+      { id: "WC3-4", sender: "lead", text: "We're a tech company, software development.", time: "14:02" },
+      { id: "WC3-5", sender: "bot", text: "What timeline are you looking at for enrolling your team?", time: "14:02" },
+      { id: "WC3-6", sender: "lead", text: "We need this in place by Q2, so within 2 months.", time: "14:03" },
+      { id: "WC3-7", sender: "bot", text: "Do you need international coverage? Many tech companies have remote workers abroad.", time: "14:03" },
+      { id: "WC3-8", sender: "lead", text: "Yes, we have a few people in Colombia and Peru.", time: "14:04" },
+      { id: "WC3-9", sender: "bot", text: "Were you referred by a broker or insurance advisor?", time: "14:04" },
+      { id: "WC3-10", sender: "lead", text: "Yes, Pacific Insurance referred us.", time: "14:05" },
+      { id: "WC3-11", sender: "bot", text: "To prepare a corporate proposal, could you share your name, company name, and email?", time: "14:05" },
+      { id: "WC3-12", sender: "lead", text: "Robert Chen, TechVentures Inc, robert.chen@techventures.com", time: "14:06" },
+      { id: "WC3-13", sender: "bot", text: "Do you consent to our data processing policy?", time: "14:06" },
+      { id: "WC3-14", sender: "lead", text: "Yes, I accept.", time: "14:07" },
+      { id: "WC3-15", sender: "bot", text: "✅ Thank you, Robert! A corporate specialist will contact you within 2 hours with a tailored proposal. Thank you for considering Saludsa!", time: "14:07" },
     ],
   },
   {
     id: "demo-4",
-    title: "Empresa Pequeña — Consulta WhatsApp",
+    title: "Family Maternity Coverage",
     messages: [
-      { id: "WC4-1", sender: "bot", text: "¡Hola! Gracias por contactar a Saludsa. ¿En qué le podemos ayudar?", time: "16:00" },
-      { id: "WC4-2", sender: "lead", text: "Hola, tengo una empresa pequeña de 12 personas. ¿Tienen planes corporativos para nosotros?", time: "16:01" },
-      { id: "WC4-3", sender: "bot", text: "¡Claro! Tenemos planes desde 10 empleados. ¿Cuál es su industria?", time: "16:01" },
-      { id: "WC4-4", sender: "lead", text: "Somos una agencia de marketing digital.", time: "16:02" },
-      { id: "WC4-5", sender: "bot", text: "Excelente. ¿En qué plazo necesitan la cobertura?", time: "16:02" },
-      { id: "WC4-6", sender: "lead", text: "No hay urgencia, estamos explorando opciones para el segundo semestre.", time: "16:03" },
-      { id: "WC4-7", sender: "bot", text: "¿Necesitan cobertura internacional?", time: "16:03" },
-      { id: "WC4-8", sender: "lead", text: "No por ahora.", time: "16:04" },
-      { id: "WC4-9", sender: "bot", text: "¿Cómo conocieron Saludsa?", time: "16:04" },
-      { id: "WC4-10", sender: "lead", text: "Vi un post en LinkedIn.", time: "16:05" },
-      { id: "WC4-11", sender: "bot", text: "Para preparar una propuesta, ¿me comparte su nombre, empresa y correo?", time: "16:05" },
-      { id: "WC4-12", sender: "lead", text: "Martín Peña, Agencia Creativa EC, martin@agcreativa.ec", time: "16:06" },
-      { id: "WC4-13", sender: "bot", text: "¿Acepta el tratamiento de datos según nuestra política de privacidad?", time: "16:06" },
-      { id: "WC4-14", sender: "lead", text: "Sí, de acuerdo.", time: "16:07" },
-      { id: "WC4-15", sender: "bot", text: "✅ Registrado. Le enviaremos información por correo y un asesor le contactará cuando lo indique. ¡Gracias!", time: "16:07" },
+      { id: "WC4-1", sender: "bot", text: "Hello! I can help you choose a health plan. Are you looking for coverage for yourself, your family, or your company?", time: "16:00" },
+      { id: "WC4-2", sender: "lead", text: "My family. My wife is expecting and we need maternity coverage.", time: "16:01" },
+      { id: "WC4-3", sender: "bot", text: "Congratulations! How many family members need coverage?", time: "16:01" },
+      { id: "WC4-4", sender: "lead", text: "Three — me, my wife, and the baby on the way.", time: "16:02" },
+      { id: "WC4-5", sender: "bot", text: "Our Family Plan includes prenatal, delivery, and postnatal care. The newborn is automatically covered from birth. What's your budget range?", time: "16:02" },
+      { id: "WC4-6", sender: "lead", text: "We're flexible, maybe $250-400 per month.", time: "16:03" },
+      { id: "WC4-7", sender: "bot", text: "How soon do you need the maternity coverage to start?", time: "16:03" },
+      { id: "WC4-8", sender: "lead", text: "Immediately — she's 4 months along.", time: "16:04" },
+      { id: "WC4-9", sender: "bot", text: "I understand the urgency. Were you referred by anyone?", time: "16:04" },
+      { id: "WC4-10", sender: "lead", text: "No, I found you through a Google search.", time: "16:05" },
+      { id: "WC4-11", sender: "bot", text: "To fast-track your application, could you provide your name and email?", time: "16:05" },
+      { id: "WC4-12", sender: "lead", text: "Alex Rivera, alex.rivera@gmail.com", time: "16:06" },
+      { id: "WC4-13", sender: "bot", text: "Do you consent to our privacy policy?", time: "16:06" },
+      { id: "WC4-14", sender: "lead", text: "Yes.", time: "16:07" },
+      { id: "WC4-15", sender: "bot", text: "✅ Given the urgency, an advisor will call you within 30 minutes. We'll prioritize getting your maternity coverage active quickly. Thank you, Alex!", time: "16:07" },
     ],
   },
 ];
 
 // ── Build everything ──
-export const initialLeads = generateLeads();
+const corporateLeads = generateCorporateLeads();
+const individualLeads = generateIndividualLeads(201);
+export const initialLeads: Lead[] = [...corporateLeads, ...individualLeads];
 export const initialActivities = generateActivities(initialLeads);
 export const initialTasks = generateTasks(initialLeads);
 export const initialConversations = generateConversations(initialLeads);
 
 // Pipeline data derived
 export function computePipelineData(leads: Lead[]) {
-  const stages: LeadStage[] = ["New","Contacted","Qualified","Won"];
+  const stages: LeadStage[] = ["New","Contacted","Qualified","Won","Lost"];
   const colors: Record<LeadStage, string> = {
     New: "hsl(217, 91%, 50%)", Contacted: "hsl(38, 92%, 50%)",
     Qualified: "hsl(262, 83%, 58%)", Won: "hsl(142, 71%, 45%)",
+    Lost: "hsl(0, 72%, 51%)",
   };
   return stages.map(stage => ({
     stage,

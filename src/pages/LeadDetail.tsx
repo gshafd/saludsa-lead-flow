@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useData } from "@/context/DataContext";
 import { LeadStage } from "@/lib/types";
-import { getScoreExplanations, topDriversSummary, SCORING_WEIGHTS } from "@/lib/scoring";
+import { getScoreExplanations, topDriversSummary, SCORING_WEIGHTS, isIndividual } from "@/lib/scoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,13 @@ import {
   Phone, Mail, Calendar, ArrowLeft, MessageSquare,
   FileText, CheckCircle2, Clock, Sparkles,
   Building2, TrendingUp, Info, Shield, History,
-  Plus, AlertTriangle,
+  Plus, AlertTriangle, Users, Heart,
 } from "lucide-react";
 
 const stageColors: Record<string, string> = {
   New: "bg-stage-new", Contacted: "bg-stage-contacted",
   Qualified: "bg-stage-qualified", Won: "bg-stage-won",
+  Lost: "bg-destructive",
 };
 
 const activityIcons: Record<string, React.ReactNode> = {
@@ -42,6 +43,8 @@ export default function LeadDetail() {
   const { leads, activities, auditLog, updateLead, addActivity, salesReps } = useData();
   const lead = leads.find((l) => l.id === id);
 
+  const individual = lead ? isIndividual(lead) : false;
+
   const leadActivities = useMemo(
     () => lead ? activities.filter((a) => a.leadId === lead.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [],
     [activities, lead]
@@ -57,6 +60,7 @@ export default function LeadDetail() {
 
   const [stage, setStage] = useState<LeadStage>(lead?.stage ?? "New");
   const [companySize, setCompanySize] = useState(String(lead?.companySize ?? 0));
+  const [householdSize, setHouseholdSize] = useState(String(lead?.householdSize ?? 1));
   const [addActivityOpen, setAddActivityOpen] = useState(false);
   const [weightsOpen, setWeightsOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
@@ -75,13 +79,19 @@ export default function LeadDetail() {
     }
   };
 
+  const handleHouseholdSizeBlur = () => {
+    const size = parseInt(householdSize) || (lead.householdSize ?? 1);
+    if (size !== (lead.householdSize ?? 1)) {
+      updateLead(lead.id, { householdSize: size });
+    }
+  };
+
   const handleToggleQuote = () => {
     updateLead(lead.id, { requestedQuote: !lead.requestedQuote });
   };
 
-  // Score threshold suggestion
   const scoreSuggestion = lead.qualScore >= 75 && lead.stage === "Contacted"
-    ? `Score rose to ${lead.qualScore}. Suggest escalate to enterprise team.`
+    ? `Score rose to ${lead.qualScore}. Suggest escalate to ${individual ? "priority advisor" : "enterprise team"}.`
     : lead.qualScore >= 50 && lead.stage === "New"
     ? `Score is ${lead.qualScore}. Suggest move to Contacted.`
     : null;
@@ -96,13 +106,16 @@ export default function LeadDetail() {
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold">{lead.name}</h1>
-            <Badge className={`${stageColors[lead.stage]} border-0`}>{lead.stage}</Badge>
+            <Badge className={`${stageColors[lead.stage] || "bg-muted"} border-0`}>{lead.stage}</Badge>
+            <Badge variant="outline" className="text-xs">{individual ? "Individual" : "Corporate"}</Badge>
             <span className={`text-sm font-semibold ${
               lead.qualLevel === "High" ? "text-qual-high" :
               lead.qualLevel === "Medium" ? "text-qual-medium" : "text-qual-low"
             }`}>{lead.qualScore}%</span>
           </div>
-          <p className="text-sm text-muted-foreground">{lead.company} · {lead.id} · {lead.region}</p>
+          <p className="text-sm text-muted-foreground">
+            {individual ? lead.planInterest : lead.company} · {lead.id} · {lead.region}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm"><Phone className="h-3.5 w-3.5 mr-1" /> Call</Button>
@@ -134,7 +147,7 @@ export default function LeadDetail() {
             <CardContent className="space-y-3 text-sm">
               <InfoRow label="Email" value={lead.email} />
               <InfoRow label="Phone" value={lead.phone} />
-              <InfoRow label="Company" value={lead.company} />
+              {!individual && <InfoRow label="Company" value={lead.company} />}
               <InfoRow label="Source" value={lead.source} />
               <InfoRow label="Plan Interest" value={lead.planInterest} />
               <InfoRow label="Assigned To" value={lead.assignedTo} />
@@ -142,10 +155,25 @@ export default function LeadDetail() {
               <InfoRow label="Created" value={new Date(lead.createdAt).toLocaleDateString()} />
               <InfoRow label="Last Contact" value={lead.lastContactedAt ? new Date(lead.lastContactedAt).toLocaleDateString() : "—"} />
               <Separator />
-              <div>
-                <Label className="text-xs text-muted-foreground">Company Size</Label>
-                <Input type="number" value={companySize} onChange={e => setCompanySize(e.target.value)} onBlur={handleCompanySizeBlur} className="mt-1 h-8" />
-              </div>
+
+              {individual ? (
+                <>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Household Size</Label>
+                    <Input type="number" value={householdSize} onChange={e => setHouseholdSize(e.target.value)} onBlur={handleHouseholdSizeBlur} className="mt-1 h-8" />
+                  </div>
+                  {lead.dependents !== undefined && <InfoRow label="Dependents" value={String(lead.dependents)} />}
+                  {lead.coverageLevel && <InfoRow label="Coverage Level" value={lead.coverageLevel} />}
+                  {lead.budgetRange && <InfoRow label="Budget Range" value={lead.budgetRange} />}
+                  {lead.decisionTimeline && <InfoRow label="Decision Timeline" value={lead.decisionTimeline} />}
+                </>
+              ) : (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Company Size</Label>
+                  <Input type="number" value={companySize} onChange={e => setCompanySize(e.target.value)} onBlur={handleCompanySizeBlur} className="mt-1 h-8" />
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground text-xs">Requested Quote</span>
                 <Button variant={lead.requestedQuote ? "default" : "outline"} size="sm" onClick={handleToggleQuote} className="h-7 text-xs">
@@ -162,6 +190,7 @@ export default function LeadDetail() {
                     <SelectItem value="Contacted">Contacted</SelectItem>
                     <SelectItem value="Qualified">Qualified</SelectItem>
                     <SelectItem value="Won">Won</SelectItem>
+                    <SelectItem value="Lost">Lost</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -222,7 +251,7 @@ export default function LeadDetail() {
                 <Separator />
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-sm">Total</span>
-                  <span className="font-bold text-lg">{lead.qualScore}</span>
+                  <span className="font-bold text-lg">{scoreExplanations.reduce((s, i) => s + i.value, 0)}</span>
                 </div>
               </div>
               <Separator />

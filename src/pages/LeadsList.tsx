@@ -10,11 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Plus, Filter, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
+import { Search, Plus, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 
 const stageColors: Record<string, string> = {
   New: "bg-stage-new", Contacted: "bg-stage-contacted",
   Qualified: "bg-stage-qualified", Won: "bg-stage-won",
+  Lost: "bg-destructive",
 };
 
 const PAGE_SIZE = 25;
@@ -28,6 +29,7 @@ export default function LeadsList() {
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [assignedFilter, setAssignedFilter] = useState<string>("all");
   const [regionFilter, setRegionFilter] = useState<string>("all");
+  const [segmentFilter, setSegmentFilter] = useState<string>("all");
   const [scoreRange, setScoreRange] = useState([0, 100]);
   const [page, setPage] = useState(1);
   const [sortField, setSortField] = useState<"qualScore" | "createdAt">("qualScore");
@@ -43,8 +45,9 @@ export default function LeadsList() {
       const matchSource = sourceFilter === "all" || l.source === sourceFilter;
       const matchAssigned = assignedFilter === "all" || l.assignedTo === assignedFilter;
       const matchRegion = regionFilter === "all" || l.region === regionFilter;
+      const matchSegment = segmentFilter === "all" || l.segment === segmentFilter;
       const matchScore = l.qualScore >= scoreRange[0] && l.qualScore <= scoreRange[1];
-      return matchSearch && matchStage && matchSource && matchAssigned && matchRegion && matchScore;
+      return matchSearch && matchStage && matchSource && matchAssigned && matchRegion && matchSegment && matchScore;
     });
     result.sort((a, b) => {
       let cmp = 0;
@@ -53,7 +56,7 @@ export default function LeadsList() {
       return sortDir === "desc" ? -cmp : cmp;
     });
     return result;
-  }, [leads, search, stageFilter, sourceFilter, assignedFilter, regionFilter, scoreRange, sortField, sortDir]);
+  }, [leads, search, stageFilter, sourceFilter, assignedFilter, regionFilter, segmentFilter, scoreRange, sortField, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -96,6 +99,15 @@ export default function LeadsList() {
             <SelectItem value="Contacted">Contacted</SelectItem>
             <SelectItem value="Qualified">Qualified</SelectItem>
             <SelectItem value="Won">Won</SelectItem>
+            <SelectItem value="Lost">Lost</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={segmentFilter} onValueChange={(v) => { setSegmentFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-36"><SelectValue placeholder="Segment" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Segments</SelectItem>
+            <SelectItem value="corporate">Corporate</SelectItem>
+            <SelectItem value="individual">Individual</SelectItem>
           </SelectContent>
         </Select>
         <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(1); }}>
@@ -108,6 +120,7 @@ export default function LeadsList() {
             <SelectItem value="Call Center">Call Center</SelectItem>
             <SelectItem value="Trade Show">Trade Show</SelectItem>
             <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+            <SelectItem value="Referral">Referral</SelectItem>
           </SelectContent>
         </Select>
         <Select value={assignedFilter} onValueChange={(v) => { setAssignedFilter(v); setPage(1); }}>
@@ -139,6 +152,7 @@ export default function LeadsList() {
                 <tr className="border-b bg-muted/30">
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Lead</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Company</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Segment</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Source</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Stage</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground cursor-pointer select-none" onClick={() => toggleSort("qualScore")}>
@@ -159,9 +173,12 @@ export default function LeadsList() {
                       <div className="text-xs text-muted-foreground">{lead.phone}</div>
                     </td>
                     <td className="py-3 px-4">{lead.company}</td>
+                    <td className="py-3 px-4">
+                      <Badge variant="outline" className="text-xs">{lead.segment === "individual" ? "Individual" : "Corporate"}</Badge>
+                    </td>
                     <td className="py-3 px-4 text-muted-foreground">{lead.source}</td>
                     <td className="py-3 px-4">
-                      <Badge className={`${stageColors[lead.stage]} text-xs border-0`}>{lead.stage}</Badge>
+                      <Badge className={`${stageColors[lead.stage] || "bg-muted"} text-xs border-0`}>{lead.stage}</Badge>
                     </td>
                     <td className="py-3 px-4">
                       <span className={`font-semibold ${
@@ -177,7 +194,6 @@ export default function LeadsList() {
               </tbody>
             </table>
           </div>
-          {/* Pagination */}
           <div className="flex items-center justify-between px-4 py-3 border-t">
             <p className="text-xs text-muted-foreground">
               Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
@@ -205,29 +221,43 @@ function NewLeadForm({ onSubmit }: { onSubmit: (id: string) => void }) {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [source, setSource] = useState<LeadSource>("Website Form");
-  const [plan, setPlan] = useState("Plan Corporativo Premium");
+  const [plan, setPlan] = useState("Corporate Premium Plan");
+  const [segment, setSegment] = useState<"corporate" | "individual">("corporate");
 
   const handleSubmit = () => {
     if (!name.trim()) return;
     const id = createLeadFromChat({
-      name, company, email, phone, source,
+      name, company: segment === "individual" ? "Individual" : company, email, phone, source,
       planInterest: plan, stage: "New",
       assignedTo: reps[0].name, region: "Quito",
-      companySize: 10, createdAt: new Date().toISOString(),
+      companySize: segment === "individual" ? 1 : 10, createdAt: new Date().toISOString(),
       lastContactedAt: "", requestedQuote: false,
       chatInteractions: 0, emailResponses: 0, callsCount: 0,
       consentStatus: "pending",
+      segment,
     });
     onSubmit(id);
   };
 
   return (
     <div className="space-y-4">
+      <div>
+        <Label>Segment</Label>
+        <Select value={segment} onValueChange={v => setSegment(v as any)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="corporate">Corporate</SelectItem>
+            <SelectItem value="individual">Individual</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <div className="grid grid-cols-2 gap-4">
-        <div><Label>Full Name</Label><Input placeholder="e.g. Juan Pérez" value={name} onChange={e => setName(e.target.value)} /></div>
-        <div><Label>Company</Label><Input placeholder="e.g. Empresa ABC" value={company} onChange={e => setCompany(e.target.value)} /></div>
+        <div><Label>Full Name</Label><Input placeholder="e.g. John Smith" value={name} onChange={e => setName(e.target.value)} /></div>
+        {segment === "corporate" && (
+          <div><Label>Company</Label><Input placeholder="e.g. Acme Corp" value={company} onChange={e => setCompany(e.target.value)} /></div>
+        )}
         <div><Label>Phone</Label><Input placeholder="+593 99 000 0000" value={phone} onChange={e => setPhone(e.target.value)} /></div>
-        <div><Label>Email</Label><Input placeholder="email@company.com" value={email} onChange={e => setEmail(e.target.value)} /></div>
+        <div><Label>Email</Label><Input placeholder="email@example.com" value={email} onChange={e => setEmail(e.target.value)} /></div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -241,6 +271,7 @@ function NewLeadForm({ onSubmit }: { onSubmit: (id: string) => void }) {
               <SelectItem value="Call Center">Call Center</SelectItem>
               <SelectItem value="Trade Show">Trade Show</SelectItem>
               <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+              <SelectItem value="Referral">Referral</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -249,12 +280,20 @@ function NewLeadForm({ onSubmit }: { onSubmit: (id: string) => void }) {
           <Select value={plan} onValueChange={setPlan}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="Plan Corporativo Premium">Plan Corporativo Premium</SelectItem>
-              <SelectItem value="Plan Corporativo Estándar">Plan Corporativo Estándar</SelectItem>
-              <SelectItem value="Plan Familiar Premium">Plan Familiar Premium</SelectItem>
-              <SelectItem value="Plan Familiar Plus">Plan Familiar Plus</SelectItem>
-              <SelectItem value="Plan Individual Básico">Plan Individual Básico</SelectItem>
-              <SelectItem value="Plan Individual Plus">Plan Individual Plus</SelectItem>
+              {segment === "corporate" ? (
+                <>
+                  <SelectItem value="Corporate Premium Plan">Corporate Premium</SelectItem>
+                  <SelectItem value="Corporate Standard Plan">Corporate Standard</SelectItem>
+                  <SelectItem value="Corporate Plus Plan">Corporate Plus</SelectItem>
+                </>
+              ) : (
+                <>
+                  <SelectItem value="Individual Plan">Individual Plan</SelectItem>
+                  <SelectItem value="Family Plan">Family Plan</SelectItem>
+                  <SelectItem value="Premium Individual">Premium Individual</SelectItem>
+                  <SelectItem value="Family Plus">Family Plus</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>
