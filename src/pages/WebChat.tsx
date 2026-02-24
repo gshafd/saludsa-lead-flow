@@ -3,7 +3,6 @@ import { useData } from "@/context/DataContext";
 import { ChatMessage } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Bot, User, MessageCircle } from "lucide-react";
@@ -36,12 +35,11 @@ export default function WebChat() {
     setMessages(prev => [...prev, msg]);
     setInput("");
 
-    // Simulate bot response
     setTimeout(() => {
       const botMsg: ChatMessage = {
         id: `BOT-${Date.now()}`,
         sender: "bot",
-        text: "Gracias por su mensaje. Un asesor le contactará pronto. ¿Hay algo más en lo que pueda ayudarle?",
+        text: "Thank you for your message. An advisor will contact you soon. Is there anything else I can help with?",
         time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
         channel: "webchat",
       };
@@ -53,12 +51,11 @@ export default function WebChat() {
     const flow = webChatDemoFlows.find(f => f.id === selectedFlow);
     if (!flow || captured) return;
 
-    // Simulate lead capture from conversation
-    const leadNames: Record<string, { name: string; company: string; email: string; size: number; source: string }> = {
-      "demo-1": { name: "Rafael Moreno", company: "Industrial Guayas", email: "rafael.moreno@indguayas.ec", size: 75, source: "Website Form" },
-      "demo-2": { name: "Julio Herrera", company: "Particular", email: "julio.herrera@gmail.com", size: 4, source: "Website Form" },
-      "demo-3": { name: "Sandra López", company: "Particular", email: "sandra.lopez@outlook.com", size: 1, source: "Website Form" },
-      "demo-4": { name: "Martín Peña", company: "Agencia Creativa EC", email: "martin@agcreativa.ec", size: 12, source: "LinkedIn" },
+    const leadNames: Record<string, { name: string; company: string; email: string; size: number; source: string; segment: "corporate" | "individual"; plan: string; householdSize?: number; dependents?: number; decisionTimeline?: string }> = {
+      "demo-1": { name: "Lisa Parker", company: "Individual", email: "lisa.parker@gmail.com", size: 1, source: "Website Form", segment: "individual", plan: "Family Plan", householdSize: 4, dependents: 2, decisionTimeline: "< 2 weeks" },
+      "demo-2": { name: "Mark Sullivan", company: "Individual", email: "mark.sullivan@outlook.com", size: 1, source: "Website Form", segment: "individual", plan: "Premium Individual", householdSize: 1, dependents: 0, decisionTimeline: "< 30 days" },
+      "demo-3": { name: "Robert Chen", company: "TechVentures Inc", email: "robert.chen@techventures.com", size: 60, source: "Broker Referral", segment: "corporate", plan: "Corporate Premium Plan" },
+      "demo-4": { name: "Alex Rivera", company: "Individual", email: "alex.rivera@gmail.com", size: 1, source: "Website Form", segment: "individual", plan: "Family Plan", householdSize: 3, dependents: 1, decisionTimeline: "Immediate" },
     };
 
     const info = leadNames[selectedFlow];
@@ -66,14 +63,18 @@ export default function WebChat() {
       const id = createLeadFromChat({
         name: info.name, company: info.company, email: info.email,
         phone: "+593 99 000 0000", source: info.source as any,
-        planInterest: "Plan Corporativo Premium", stage: "New",
-        assignedTo: "Carlos Mendoza", region: "Guayaquil",
+        planInterest: info.plan, stage: "New",
+        assignedTo: "Carlos Mendoza", region: "Quito",
         companySize: info.size, createdAt: new Date().toISOString(),
         lastContactedAt: new Date().toISOString(), requestedQuote: true,
         chatInteractions: Math.floor(flow.messages.length / 2),
         emailResponses: 0, callsCount: 0,
         consentStatus: "granted", consentTimestamp: new Date().toISOString(),
         consentMethod: "Web chat opt-in",
+        segment: info.segment,
+        householdSize: info.householdSize,
+        dependents: info.dependents,
+        decisionTimeline: info.decisionTimeline,
       });
 
       addActivity({
@@ -90,7 +91,7 @@ export default function WebChat() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Public Web Chat</h1>
+        <h1 className="text-2xl font-semibold">Website Chat Demo</h1>
         <p className="text-sm text-muted-foreground">Simulated virtual assistant — qualification flow demos</p>
       </div>
 
@@ -131,8 +132,8 @@ export default function WebChat() {
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
               <div>
-                <CardTitle className="text-sm font-semibold">Saludsa — Asistente Virtual</CardTitle>
-                <p className="text-xs opacity-80">En línea</p>
+                <CardTitle className="text-sm font-semibold">Saludsa — Virtual Assistant</CardTitle>
+                <p className="text-xs opacity-80">Online</p>
               </div>
             </div>
           </CardHeader>
@@ -170,7 +171,7 @@ export default function WebChat() {
           </ScrollArea>
           <div className="px-4 py-3 border-t flex items-center gap-2">
             <Input
-              placeholder="Escriba su mensaje..."
+              placeholder="Type your message..."
               className="flex-1"
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -189,10 +190,10 @@ export default function WebChat() {
           <CardTitle className="text-sm font-semibold">📋 Demo Notes</CardTitle>
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground space-y-1">
-          <p><strong>Scoring weights:</strong> Company Size (max 30) + Source (8–25) + Engagement (max 30) + Intent (0/15) + Recency (0/5) = max 100.</p>
-          <p><strong>Demo data:</strong> 200 leads seeded in <code>src/lib/seed-data.ts</code> with deterministic RNG. 10 sales reps across 8 regions.</p>
-          <p><strong>Web Chat scenarios:</strong> 4 scripted flows above — Corporate Premium, Family Urgent, Individual Pricing, Small Business. Click "Capture as Lead" to create lead record.</p>
-          <p><strong>Thresholds:</strong> High ≥ 75, Medium 50–74, Low &lt; 50. Crossing bands triggers stage suggestions on Lead 360.</p>
+          <p><strong>Scoring weights:</strong> Corporate: Company Size (max 30) + Source (8–25) + Engagement (max 30) + Intent (0/15) + Recency (0/5). Individual: Household (max 10) + Source (8–18) + Engagement (max 30) + Intent (0/15) + Recency (0/5) + Family Plan (0/15) + Timeline (0/10).</p>
+          <p><strong>Demo data:</strong> 200 corporate + 25 individual leads in <code>src/lib/seed-data.ts</code>. 10 sales reps across 8 regions.</p>
+          <p><strong>Web Chat scenarios:</strong> 4 flows — Family Coverage, Individual Premium, Corporate Plan, Family Maternity. Click "Capture as Lead" to create CRM record.</p>
+          <p><strong>Thresholds:</strong> High ≥ 75, Medium 50–74, Low &lt; 50.</p>
         </CardContent>
       </Card>
     </div>

@@ -9,16 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  LineChart, Line, CartesianGrid, Legend,
+  LineChart, Line, CartesianGrid, Legend, PieChart, Pie,
 } from "recharts";
 import {
   TrendingUp, Clock, Users, CheckCircle2, Phone, Mail, Calendar,
-  ArrowRight, AlertTriangle, UserX,
+  ArrowRight, AlertTriangle, UserX, Building2, User,
 } from "lucide-react";
 
 const stageColors: Record<string, string> = {
   New: "bg-stage-new", Contacted: "bg-stage-contacted",
   Qualified: "bg-stage-qualified", Won: "bg-stage-won",
+  Lost: "bg-destructive",
 };
 
 const taskIcons: Record<string, React.ReactNode> = {
@@ -53,7 +54,6 @@ export default function Dashboard() {
       return d.getMonth() === 1 && d.getFullYear() === 2026 && (l.stage === "Qualified" || l.stage === "Won");
     }).length;
 
-    // Avg time to first contact (for contacted leads)
     const contacted = inPeriod.filter(l => l.lastContactedAt);
     const avgMinutes = contacted.length > 0
       ? contacted.reduce((sum, l) => {
@@ -65,7 +65,6 @@ export default function Dashboard() {
 
     const unassignedCount = leads.filter(l => !l.assignedTo).length;
 
-    // SLA breaches: score >= 75 and not contacted within 60 min
     const slaBreaches = leads.filter(l => {
       if (l.qualScore < 75) return false;
       if (!l.lastContactedAt) return true;
@@ -73,18 +72,36 @@ export default function Dashboard() {
       return diff > 60;
     }).length;
 
+    const corpCount = leads.filter(l => l.segment === "corporate").length;
+    const indivCount = leads.filter(l => l.segment === "individual").length;
+    const corpPct = leads.length > 0 ? Math.round((corpCount / leads.length) * 100) : 0;
+    const indivPct = leads.length > 0 ? 100 - corpPct : 0;
+
+    // Top segment this month
+    const thisMonthLeads = leads.filter(l => {
+      const d = new Date(l.createdAt);
+      return d.getMonth() === 1 && d.getFullYear() === 2026;
+    });
+    const monthCorp = thisMonthLeads.filter(l => l.segment === "corporate").length;
+    const monthIndiv = thisMonthLeads.filter(l => l.segment === "individual").length;
+    const topSegment = monthCorp >= monthIndiv ? "Corporate" : "Individual";
+    const topSegmentPct = thisMonthLeads.length > 0 ? Math.round((Math.max(monthCorp, monthIndiv) / thisMonthLeads.length) * 100) : 0;
+
     return {
       totalInPeriod: inPeriod.length,
       thisWeek: inWeek.length,
-      convRate,
-      avgHours,
-      qualifiedThisMonth,
-      unassignedCount,
-      slaBreaches,
+      convRate, avgHours, qualifiedThisMonth,
+      unassignedCount, slaBreaches,
+      corpCount, indivCount, corpPct, indivPct,
+      topSegment, topSegmentPct,
     };
   }, [leads, period]);
 
-  // Time-series data for last 90 days
+  const segmentData = useMemo(() => [
+    { name: "Corporate", value: metrics.corpCount, color: "hsl(217, 91%, 50%)" },
+    { name: "Individual", value: metrics.indivCount, color: "hsl(262, 83%, 58%)" },
+  ], [metrics]);
+
   const timeSeriesData = useMemo(() => {
     const now = new Date("2026-02-24T12:00:00");
     const weeks: { label: string; created: number; qualified: number }[] = [];
@@ -105,7 +122,6 @@ export default function Dashboard() {
     return weeks;
   }, [leads]);
 
-  // Funnel conversion
   const funnelData = useMemo(() => {
     const stages: LeadStage[] = ["New", "Contacted", "Qualified", "Won"];
     return stages.map((stage, i) => {
@@ -122,7 +138,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Lead management overview</p>
+          <p className="text-sm text-muted-foreground">Lead management overview · {leads.length} total leads</p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
@@ -147,33 +163,40 @@ export default function Dashboard() {
         <MetricCard icon={<CheckCircle2 className="h-5 w-5 text-stage-qualified" />} label="Qualified This Month" value={String(metrics.qualifiedThisMonth)} sub="Feb 2026" />
       </div>
 
-      {/* SLA + Unassigned alerts */}
-      {(metrics.slaBreaches > 0 || metrics.unassignedCount > 0) && (
-        <div className="flex gap-4 flex-wrap">
-          {metrics.slaBreaches > 0 && (
-            <Card className="border-destructive/30 flex-1 min-w-[200px]">
-              <CardContent className="pt-4 pb-3 flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
-                <div>
-                  <p className="text-sm font-semibold">{metrics.slaBreaches} SLA Breaches</p>
-                  <p className="text-xs text-muted-foreground">High-score leads not contacted within 60 min</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          {metrics.unassignedCount > 0 && (
-            <Card className="border-stage-contacted/30 flex-1 min-w-[200px]">
-              <CardContent className="pt-4 pb-3 flex items-center gap-3">
-                <UserX className="h-5 w-5 text-stage-contacted" />
-                <div>
-                  <p className="text-sm font-semibold">{metrics.unassignedCount} Unassigned</p>
-                  <p className="text-xs text-muted-foreground">Leads without assigned rep</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+      {/* SLA + Unassigned + Segment alerts */}
+      <div className="flex gap-4 flex-wrap">
+        {metrics.slaBreaches > 0 && (
+          <Card className="border-destructive/30 flex-1 min-w-[200px]">
+            <CardContent className="pt-4 pb-3 flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <div>
+                <p className="text-sm font-semibold">{metrics.slaBreaches} SLA Breaches</p>
+                <p className="text-xs text-muted-foreground">High-score leads not contacted within 60 min</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {metrics.unassignedCount > 0 && (
+          <Card className="border-stage-contacted/30 flex-1 min-w-[200px]">
+            <CardContent className="pt-4 pb-3 flex items-center gap-3">
+              <UserX className="h-5 w-5 text-stage-contacted" />
+              <div>
+                <p className="text-sm font-semibold">{metrics.unassignedCount} Unassigned</p>
+                <p className="text-xs text-muted-foreground">Leads without assigned rep</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        <Card className="flex-1 min-w-[200px]">
+          <CardContent className="pt-4 pb-3 flex items-center gap-3">
+            <Building2 className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-semibold">Top Segment This Month: {metrics.topSegment} ({metrics.topSegmentPct}%)</p>
+              <p className="text-xs text-muted-foreground">Corporate {metrics.corpPct}% · Individual {metrics.indivPct}%</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Pipeline Chart */}
@@ -196,7 +219,7 @@ export default function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <div className="grid grid-cols-4 gap-3 mt-4">
+            <div className="grid grid-cols-5 gap-3 mt-4">
               {pipelineData.map((s) => (
                 <div key={s.stage} className="text-center">
                   <div className="text-2xl font-bold">{s.count}</div>
@@ -207,20 +230,52 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Today's Tasks */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold flex items-center justify-between">
-              Today's Follow-ups
-              <Badge variant="outline">{todayTasks.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 max-h-[400px] overflow-y-auto">
-            {todayTasks.map((task) => (
-              <TaskRow key={task.id} task={task} />
-            ))}
-          </CardContent>
-        </Card>
+        {/* Segment Breakdown + Tasks */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">Lead Segments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={segmentData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={3}>
+                      {segmentData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-6 text-sm mt-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-primary" />
+                  <span>Corporate ({metrics.corpCount})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-stage-qualified" />
+                  <span>Individual ({metrics.indivCount})</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold flex items-center justify-between">
+                Today's Follow-ups
+                <Badge variant="outline">{todayTasks.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 max-h-[300px] overflow-y-auto">
+              {todayTasks.map((task) => (
+                <TaskRow key={task.id} task={task} />
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Time series + Funnel */}
@@ -291,6 +346,7 @@ export default function Dashboard() {
                 <tr className="border-b text-muted-foreground">
                   <th className="text-left py-3 px-2 font-medium">Lead</th>
                   <th className="text-left py-3 px-2 font-medium">Company</th>
+                  <th className="text-left py-3 px-2 font-medium">Segment</th>
                   <th className="text-left py-3 px-2 font-medium">Source</th>
                   <th className="text-left py-3 px-2 font-medium">Stage</th>
                   <th className="text-left py-3 px-2 font-medium">Score</th>
@@ -305,9 +361,12 @@ export default function Dashboard() {
                       <div className="text-xs text-muted-foreground">{lead.email}</div>
                     </td>
                     <td className="py-3 px-2">{lead.company}</td>
+                    <td className="py-3 px-2">
+                      <Badge variant="outline" className="text-xs">{lead.segment === "individual" ? "Individual" : "Corporate"}</Badge>
+                    </td>
                     <td className="py-3 px-2 text-muted-foreground">{lead.source}</td>
                     <td className="py-3 px-2">
-                      <Badge className={`${stageColors[lead.stage]} text-xs border-0`}>{lead.stage}</Badge>
+                      <Badge className={`${stageColors[lead.stage] || "bg-muted"} text-xs border-0`}>{lead.stage}</Badge>
                     </td>
                     <td className="py-3 px-2">
                       <span className={`font-semibold ${

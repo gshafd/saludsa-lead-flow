@@ -1,7 +1,8 @@
-export type LeadStage = "New" | "Contacted" | "Qualified" | "Won";
+export type LeadStage = "New" | "Contacted" | "Qualified" | "Won" | "Lost";
 export type QualLevel = "High" | "Medium" | "Low";
-export type LeadSource = "Website Form" | "WhatsApp Inbound" | "Broker Referral" | "Call Center" | "Trade Show" | "LinkedIn";
+export type LeadSource = "Website Form" | "WhatsApp Inbound" | "Broker Referral" | "Call Center" | "Trade Show" | "LinkedIn" | "Referral";
 export type Channel = "whatsapp" | "webchat" | "email" | "phone";
+export type LeadSegment = "corporate" | "individual";
 
 export interface SalesRep {
   id: string;
@@ -43,6 +44,13 @@ export interface Lead {
   consentTimestamp?: string;
   consentMethod?: string;
   scoreBreakdown: ScoreBreakdown;
+  // Individual-specific fields
+  segment: LeadSegment;
+  householdSize?: number;
+  dependents?: number;
+  coverageLevel?: string;
+  budgetRange?: string;
+  decisionTimeline?: string;
 }
 
 export interface Activity {
