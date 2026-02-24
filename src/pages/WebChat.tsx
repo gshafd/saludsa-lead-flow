@@ -132,7 +132,7 @@ export default function WebChat() {
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
               <div>
-                <CardTitle className="text-sm font-semibold">Saludsa — Virtual Assistant</CardTitle>
+                <CardTitle className="text-sm font-semibold">FDRYZE — Virtual Assistant</CardTitle>
                 <p className="text-xs opacity-80">Online</p>
               </div>
             </div>

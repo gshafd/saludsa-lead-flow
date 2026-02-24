@@ -19,7 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col">
       <header className="h-14 bg-card border-b flex items-center px-4 gap-4 shrink-0 z-30">
         <div className="font-bold text-lg tracking-tight text-primary">
-          Saludsa<span className="text-muted-foreground font-normal ml-1">CRM</span>
+          FDRYZE<span className="text-muted-foreground font-normal ml-1">CRM</span>
         </div>
         <nav className="hidden md:flex items-center gap-1 ml-6">
           {navItems.map((item) => (
